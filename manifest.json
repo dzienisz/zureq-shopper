@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Zureq Shopper",
+  "version": "1.0.0",
+  "description": "Search products and compare markets with the Zureq MCP API.",
+  "permissions": ["storage", "contextMenus", "sidePanel"],
+  "host_permissions": ["https://api.zureq.io/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Open Zureq Shopper"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

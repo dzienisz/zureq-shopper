@@ -1,0 +1,18 @@
+:root { color-scheme: light; --ink: #18212b; --muted: #6d7782; --line: #e4e8ed; --accent: #1769e0; --danger: #b3313d; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #f6f8fa; color: var(--ink); }
+.settings { max-width: 520px; margin: 8vh auto; padding: 28px; background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 35px #18212b0c; }
+h1 { margin: 0 0 8px; letter-spacing: -.04em; }
+.eyebrow { color: var(--accent); font-weight: 800; letter-spacing: .14em; font-size: 11px; }
+.intro { color: var(--muted); line-height: 1.5; margin-bottom: 25px; }
+label { color: var(--muted); display: block; font-size: 12px; font-weight: 700; margin: 17px 0; }
+input, select { width: 100%; margin-top: 6px; padding: 11px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+.key-row { display: flex; gap: 7px; }
+.key-row input { flex: 1; }
+button { font: inherit; cursor: pointer; border-radius: 8px; padding: 10px 14px; font-weight: 800; }
+.primary { background: var(--accent); color: #fff; border: 0; width: 100%; margin-top: 8px; }
+.secondary { color: var(--accent); background: #fff; border: 1px solid var(--line); }
+#test-key { margin-bottom: 2px; }
+#status { min-height: 20px; color: #19804a; font-size: 13px; }
+#status.error { color: var(--danger); }
+@media (max-width: 560px) { .settings { margin: 0; min-height: 100vh; border: 0; border-radius: 0; } }

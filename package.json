@@ -1,0 +1,10 @@
+{
+  "name": "zureq-shopper",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Zureq Shopper Chrome extension",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}
