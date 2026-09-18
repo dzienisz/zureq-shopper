@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { callTool, mapApiError, parseToolResponse, ZureqError } from '../zureq.js';
+import { addSearchHistory, callTool, mapApiError, parseToolResponse, ZureqError } from '../zureq.js';
 
 test('maps known API errors to friendly codes and messages', () => {
   const error = mapApiError({ code: -32003, message: 'credits' });
@@ -45,4 +45,19 @@ test('surfaces error responses returned as tool text', () => {
     () => parseToolResponse({ result: { isError: true, content: [{ type: 'text', text: '{"error":"timed out"}' }] } }),
     (error) => error.code === 'API_ERROR' && /timed out/.test(error.message)
   );
+});
+
+test('persists the newest search history rather than the old array', async () => {
+  let saved;
+  globalThis.chrome = {
+    storage: {
+      local: {
+        get: async () => ({ zureqHistory: ['old search', 'another search'] }),
+        set: async (values) => { saved = values; }
+      }
+    }
+  };
+  assert.deepEqual(await addSearchHistory('new search'), ['new search', 'old search', 'another search']);
+  assert.deepEqual(saved, { zureqHistory: ['new search', 'old search', 'another search'] });
+  delete globalThis.chrome;
 });

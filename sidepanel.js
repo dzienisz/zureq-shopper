@@ -5,7 +5,11 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const state = { products: [], details: new Map(), history: [], markets: [], selectedMarkets: [], sessionCredits: 0 };
+let panelReady = false;
+let queuedPending = null;
+let handledPending = '';
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+const productKey = (product) => `${product.shopId}::${product.sku}`;
 function decodeEntities(value) {
   const area = document.createElement('textarea');
   area.innerHTML = String(value ?? '');
@@ -17,6 +21,10 @@ function showNotice(message, error = false) {
   notice.className = `notice${error ? ' error' : ''}`;
 }
 function clearNotice() { $('notice').className = 'notice hidden'; }
+async function clearPending() {
+  try { await chrome.storage.session.remove('zureqPending'); } catch {}
+  await chrome.storage.local.remove('zureqPending');
+}
 function handleError(error) {
   if (error?.code === 'NO_KEY') {
     $('no-key').classList.remove('hidden');
@@ -73,11 +81,12 @@ function renderProducts() {
   const products = [...state.products];
   if (sort === 'price-asc') products.sort((a, b) => priceValue(a) - priceValue(b));
   if (sort === 'price-desc') products.sort((a, b) => priceValue(b) - priceValue(a));
-  $('search-results').innerHTML = products.length ? products.map((product, index) => {
-    const details = state.details.get(product.sku);
+  $('search-results').innerHTML = products.length ? products.map((product) => {
+    const key = productKey(product);
+    const details = state.details.get(key);
     const image = product.imageUrl ? `<img class="product-image" src="${esc(product.imageUrl)}" alt="">` : '<div class="product-image"></div>';
     const detailHtml = details ? `<div class="details">${details.description ? `<p>${esc(details.description)}</p>` : ''}${details.variants?.length ? `<label>Variant<select class="variant-select" data-sku="${esc(product.sku)}">${details.variants.map((variant) => `<option value="${esc(variant.sku)}">${esc(variant.name || variant.title || variant.sku)}</option>`).join('')}</select></label>` : ''}<div class="checkout-area" data-checkout="${esc(product.sku)}"></div></div>` : '';
-    return `<article class="card" data-index="${index}" data-sku="${esc(product.sku)}">${image}<div><h3>${esc(decodeEntities(product.name))}</h3><div class="meta">${esc(product.shopName || product.shopId || 'Unknown shop')} · ${esc(product.category || 'General')}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}</div><div class="${product.inStock ? 'stock' : 'stock out'}">${product.inStock ? 'In stock' : 'Out of stock'}</div></div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout link</button></div>${detailHtml}</article>`;
+    return `<article class="card" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}">${image}<div><h3>${esc(decodeEntities(product.name))}</h3><div class="meta">${esc(product.shopName || product.shopId || 'Unknown shop')} · ${esc(product.category || 'General')}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}</div><div class="${product.inStock ? 'stock' : 'stock out'}">${product.inStock ? 'In stock' : 'Out of stock'}</div></div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout link</button></div>${detailHtml}</article>`;
   }).join('') : '<p class="hint">No products found. Try a broader query or another country.</p>';
 }
 async function search(event) {
@@ -97,29 +106,34 @@ async function search(event) {
   } catch (error) { handleError(error); }
 }
 async function showDetails(card) {
-  const product = state.products.find((item) => String(item.sku) === card.dataset.sku);
+  const product = state.products.find((item) => String(item.shopId) === card.dataset.shopId && String(item.sku) === card.dataset.sku);
   if (!product) return;
-  if (state.details.has(product.sku)) {
-    state.details.delete(product.sku);
+  const key = productKey(product);
+  if (state.details.has(key)) {
+    state.details.delete(key);
     renderProducts();
     return;
   }
   try {
     const details = await tool('get_product', { shopId: product.shopId, sku: product.sku });
-    state.details.set(product.sku, details?.product || details);
+    state.details.set(key, details?.product || details);
     renderProducts();
   } catch (error) { handleError(error); }
 }
 async function checkout(card) {
-  const product = state.products.find((item) => String(item.sku) === card.dataset.sku);
+  const product = state.products.find((item) => String(item.shopId) === card.dataset.shopId && String(item.sku) === card.dataset.sku);
   if (!product) return;
-  const details = state.details.get(product.sku);
+  const details = state.details.get(productKey(product));
   if (!details) {
     await showDetails(card);
     showNotice('Choose a variant if this product has one, then click Checkout link.');
     return;
   }
   const variant = card.querySelector('.variant-select')?.value;
+  if (details.requiresVariant && !details.variants?.length) {
+    showNotice('This product requires a variant, but none were returned by Zureq.', true);
+    return;
+  }
   if (details.requiresVariant && !variant) {
     showNotice('Choose a variant before creating a checkout link.', true);
     return;
@@ -186,6 +200,33 @@ $('search-results').addEventListener('click', (event) => {
   if (button.dataset.action === 'copy-url') navigator.clipboard.writeText(button.dataset.url).then(() => showNotice('Checkout link copied.'));
 });
 
+async function applyPending(pending) {
+  if (!pending?.query) return;
+  const signature = `${pending.createdAt || ''}:${pending.mode || 'search'}:${pending.query}`;
+  if (signature === handledPending) return;
+  handledPending = signature;
+  if (pending.mode === 'compare') {
+    switchTab('compare');
+    $('compare-query').value = pending.query;
+    if (state.selectedMarkets.length >= 2) await compare({ preventDefault() {} });
+  } else {
+    $('query').value = pending.query;
+    await search();
+  }
+  await clearPending();
+}
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (!['session', 'local'].includes(areaName)) return;
+  const pending = changes.zureqPending?.newValue;
+  if (!pending) return;
+  if (!panelReady) {
+    queuedPending = pending;
+    return;
+  }
+  applyPending(pending);
+});
+
 async function init() {
   state.history = await getSearchHistory();
   renderHistory();
@@ -197,12 +238,9 @@ async function init() {
     let pending;
     try { ({ zureqPending: pending } = await chrome.storage.session.get({ zureqPending: null })); } catch {}
     if (!pending) ({ zureqPending: pending } = await chrome.storage.local.get({ zureqPending: null }));
-    if (pending?.query) {
-      if (pending.mode === 'compare') { switchTab('compare'); $('compare-query').value = pending.query; }
-      else { $('query').value = pending.query; await search(); }
-      try { await chrome.storage.session.remove('zureqPending'); } catch {}
-      await chrome.storage.local.remove('zureqPending');
-    }
+    await applyPending(pending || queuedPending);
+    panelReady = true;
+    if (queuedPending && queuedPending !== pending) await applyPending(queuedPending);
   } catch (error) { handleError(error); }
 }
 init();

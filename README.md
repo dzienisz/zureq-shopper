@@ -19,6 +19,14 @@ The extension stores the key in Chrome sync storage and only contacts `api.zureq
 - Search selected page text from the context menu.
 - View current API usage and this session's estimated credit spend.
 
+## Ideas implemented
+
+- Relevance-ranked product search with country, price, stock, and result-limit filters.
+- Product detail cards with variant selection and checkout-link creation.
+- Live price comparison across multiple markets with converted currencies.
+- Context-menu actions for searching or comparing selected text.
+- Usage tracking, recent searches, market caching, and an options page for local API-key management.
+
 ## Credit costs
 
 | Tool | Credits |
@@ -32,8 +40,12 @@ The extension stores the key in Chrome sync storage and only contacts `api.zureq
 
 ## Development
 
-This is plain JavaScript, HTML, and CSS with no bundler or dependencies. Run the unit tests with:
+This is plain JavaScript, HTML, and CSS with no bundler or dependencies.
+
+Run the unit tests with:
 
 ```sh
 npm test
 ```
+
+To try the extension, open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**, selecting this repository directory.

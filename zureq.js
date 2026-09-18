@@ -110,7 +110,7 @@ export async function addSearchHistory(query) {
   if (!clean) return [];
   const { zureqHistory = [] } = await chrome.storage.local.get({ zureqHistory: [] });
   const history = [clean, ...zureqHistory.filter((item) => item.toLowerCase() !== clean.toLowerCase())].slice(0, 20);
-  await chrome.storage.local.set({ zureqHistory });
+  await chrome.storage.local.set({ zureqHistory: history });
   return history;
 }
 
