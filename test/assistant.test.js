@@ -4,8 +4,10 @@ import { parseIntent } from '../assistant.js';
 
 test('parses search country and price', () => {
   assert.deepEqual(parseIntent('find a mechanical keyboard in Poland under 200 PLN'), {
-    type: 'search', query: 'a mechanical keyboard', country: 'PL', maxPrice: 200
+    type: 'search', query: 'mechanical keyboard', country: 'PL', maxPrice: 200
   });
+  assert.equal(parseIntent('show me the cheapest LiPo charger').query, 'cheapest LiPo charger');
+  assert.equal(parseIntent('compare a keyboard in PL and DE').query, 'keyboard');
 });
 
 test('parses compare markets', () => {

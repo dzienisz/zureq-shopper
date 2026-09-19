@@ -31,6 +31,10 @@ function parseMarkets(text) {
   return match[1].split(/\s*(?:,|and|&)\s*/i).map(countryCode).filter(Boolean);
 }
 
+function stripArticles(text) {
+  return String(text).trim().replace(/^(?:me\s+)?(?:a|an|the|some|for)\s+/i, '').trim();
+}
+
 export function parseIntent(text, _ctx = {}) {
   const value = String(text || '').trim();
   const lower = value.toLowerCase();
@@ -44,7 +48,7 @@ export function parseIntent(text, _ctx = {}) {
   }
   if (/\bcompare\b/i.test(value)) {
     const markets = parseMarkets(value);
-    const query = value.replace(/^.*?\bcompare\s+/i, '').replace(/\s+\bin\s+.+$/i, '').trim();
+    const query = stripArticles(value.replace(/^.*?\bcompare\s+/i, '').replace(/\s+\bin\s+.+$/i, ''));
     const currency = value.match(/\b(?:for|in)\s+([A-Z]{3})\b/)?.[1];
     return { type: 'compare', query, markets: markets.length ? markets : ['EU', 'WORLD'], ...(currency ? { currency } : {}) };
   }
@@ -54,7 +58,7 @@ export function parseIntent(text, _ctx = {}) {
     const countryMatch = body.match(/\bin\s+([A-Za-z ]+?)(?=\s+(?:under|below|less than|up to)\b|$)/i);
     const country = countryCode(countryMatch?.[1]);
     const price = parsePrice(body);
-    const query = stripConstraint(body).replace(/\s+in\s+[A-Za-z ]+$/i, '').trim();
+    const query = stripArticles(stripConstraint(body).replace(/\s+in\s+[A-Za-z ]+$/i, ''));
     return { type: 'search', query, ...(country ? { country } : {}), ...(price.maxPrice != null ? { maxPrice: price.maxPrice } : {}) };
   }
   return { type: 'help' };
