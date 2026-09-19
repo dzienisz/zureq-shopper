@@ -25,10 +25,17 @@ async function clearPending() {
   try { await chrome.storage.session.remove('zureqPending'); } catch {}
   await chrome.storage.local.remove('zureqPending');
 }
+function activeTab() {
+  return document.querySelector('.tab.active')?.dataset.tab || 'search';
+}
+function showNoKey(missing) {
+  $('no-key').classList.toggle('hidden', !missing);
+  if (missing) document.querySelectorAll('main > .panel').forEach((panel) => panel.classList.add('hidden'));
+  else ['search', 'compare', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== activeTab()));
+}
 function handleError(error) {
   if (error?.code === 'NO_KEY') {
-    $('no-key').classList.remove('hidden');
-    document.querySelectorAll('main > .panel').forEach((panel) => panel.classList.add('hidden'));
+    showNoKey(true);
     return;
   }
   showNotice(error instanceof ZureqError ? error.message : 'Something went wrong. Please try again.', true);
@@ -36,6 +43,8 @@ function handleError(error) {
 async function tool(name, args) {
   const data = await callTool(name, args);
   state.sessionCredits += TOOL_COSTS[name] || 0;
+  showNoKey(false);
+  if ($('notice').classList.contains('error')) clearNotice();
   return data;
 }
 function normalizeMarkets(data) {
@@ -158,13 +167,24 @@ async function compare(event) {
   try {
     const data = await tool('compare_markets', { query: $('compare-query').value.trim(), markets: state.selectedMarkets, currency: $('currency').value.trim().toUpperCase() || 'PLN' });
     const results = normalizeComparison(data);
+    const targetCurrency = data?.currency || $('currency').value.toUpperCase();
     $('compare-results').innerHTML = results.length ? results.map((market) => {
-      const name = market.market || market.country || market.code || market.name || 'Market';
-      const candidates = market.candidates || market.products || market.items || [];
-      const stats = [market.shopCount != null && `${market.shopCount} shops`, market.minPrice != null && `min ${market.minPrice}`, market.medianPrice != null && `median ${market.medianPrice}`].filter(Boolean);
-      const delivery = market.deliveryNotes || market.deliveryNote || market.notes;
-      return `<article class="market-result"><h3>${esc(name)}</h3><div class="market-stats">${stats.map(esc).join(' · ') || 'Market results'}</div>${delivery ? `<p class="hint">${esc(delivery)}</p>` : ''}${candidates.length ? `<ul>${candidates.slice(0, 5).map((candidate) => `<li>${esc(candidate.name || candidate.productName || candidate.shopName || 'Candidate')} — ${esc(candidate.price ?? candidate.convertedPrice ?? '')} ${esc(candidate.currency || $('currency').value.toUpperCase())}</li>`).join('')}</ul>` : '<p class="hint">No candidates returned.</p>'}</article>`;
-    }).join('') : '<p class="hint">No comparison rows returned.</p>';
+      const name = market.label || market.market || market.country || market.name || market.key || market.code || 'Market';
+      const candidates = market.offers || market.candidates || market.products || market.items || [];
+      const range = market.priceRange;
+      const stats = [
+        market.shopCount != null && `${market.shopCount} shops`,
+        (market.offerCount ?? candidates.length) != null && `${market.offerCount ?? candidates.length} offers`,
+        range?.min != null && `from ${range.min} ${range.currency || targetCurrency}`,
+        market.minPrice != null && `min ${market.minPrice}`,
+        market.medianPrice != null && `median ${market.medianPrice}`
+      ].filter(Boolean);
+      const delivery = market.delivery?.note || market.deliveryNotes || market.deliveryNote || market.notes;
+      const priceOf = (offer) => offer.approxPrice != null
+        ? `≈ ${esc(offer.approxPrice)} ${esc(offer.approxCurrency || targetCurrency)} <span class="muted">(${esc(offer.price)} ${esc(offer.currency || '')})</span>`
+        : `${esc(offer.price ?? offer.convertedPrice ?? '')} ${esc(offer.currency || targetCurrency)}`;
+      return `<article class="market-result"><h3>${esc(name)}</h3><div class="market-stats">${stats.map((stat) => esc(stat)).join(' · ') || 'Market results'}</div>${delivery ? `<p class="hint">${esc(delivery)}</p>` : ''}${candidates.length ? `<ul>${candidates.slice(0, 5).map((offer) => `<li>${esc(decodeEntities(offer.name || offer.productName || 'Offer'))} <span class="muted">· ${esc(offer.shopName || offer.shopId || '')}</span> — ${priceOf(offer)}</li>`).join('')}</ul>` : '<p class="hint">No offers returned.</p>'}</article>`;
+    }).join('') + (data?.note ? `<p class="hint">${esc(data.note)}</p>` : '') : '<p class="hint">No comparison rows returned.</p>';
   } catch (error) { handleError(error); }
 }
 async function loadUsage() {
@@ -210,6 +230,7 @@ async function applyPending(pending) {
     $('compare-query').value = pending.query;
     if (state.selectedMarkets.length >= 2) await compare({ preventDefault() {} });
   } else {
+    switchTab('search');
     $('query').value = pending.query;
     await search();
   }
@@ -217,6 +238,12 @@ async function applyPending(pending) {
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'sync' && changes.zureqApiKey) {
+    const hasKey = Boolean(String(changes.zureqApiKey.newValue || '').trim());
+    showNoKey(!hasKey);
+    if (hasKey) { clearNotice(); if (activeTab() === 'usage') loadUsage(); }
+    return;
+  }
   if (!['session', 'local'].includes(areaName)) return;
   const pending = changes.zureqPending?.newValue;
   if (!pending) return;
