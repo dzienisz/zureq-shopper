@@ -1,0 +1,82 @@
+name: Release
+
+# Package and publish the Chrome Web Store extension for version tags.
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      HAS_CHROME_SECRETS: ${{ secrets.CHROME_EXTENSION_ID != '' && secrets.CLIENT_ID != '' && secrets.CLIENT_SECRET != '' && secrets.REFRESH_TOKEN != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run tests
+        run: npm test
+
+      - name: Package extension
+        run: bash scripts/package.sh
+
+      - name: Verify tag matches package version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [ ! -f "zureq-shopper-$version.zip" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match manifest.json." >&2
+            exit 1
+          fi
+
+      - name: Extract changelog notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v ver="$version" '
+            $0 ~ "^## \\[" ver "\\]" { found=1; next }
+            /^## \[/ && found { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "See CHANGELOG.md for details." > release-notes.md
+          fi
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          zip="zureq-shopper-$version.zip"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md
+            gh release upload "$GITHUB_REF_NAME" "$zip" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file release-notes.md \
+              "$zip"
+          fi
+
+      - name: Publish to Chrome Web Store
+        if: ${{ env.HAS_CHROME_SECRETS == 'true' }}
+        env:
+          EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          out=$(npx --yes chrome-webstore-upload-cli@3 --source "zureq-shopper-$version.zip" 2>&1) && status=0 || status=$?
+          echo "$out"
+          if [ "$status" -ne 0 ] && echo "$out" | grep -q "ITEM_NOT_UPDATABLE"; then
+            echo "::warning::Chrome Web Store still has the previous version in review; upload skipped."
+            exit 0
+          fi
+          exit "$status"

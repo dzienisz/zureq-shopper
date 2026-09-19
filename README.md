@@ -57,3 +57,13 @@ npm test
 To try the extension, open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**, selecting this repository directory.
 
 The optional Chrome Prompt API is available on Chrome 138+ when Gemini Nano is installed. It is only used on-device to improve intent parsing and summaries; the extension always has a rule-based fallback.
+
+## Release
+
+1. Run `scripts/bump-version.sh X.Y.Z` to update `manifest.json` and `package.json`.
+2. Add a matching `## [X.Y.Z]` section to `CHANGELOG.md`.
+3. Commit the changes, create tag `vX.Y.Z`, and push the tag.
+4. The release workflow runs tests, packages the raw extension, creates the GitHub Release, and optionally uploads to the Chrome Web Store when its secrets are configured.
+
+Chrome Web Store copy and screenshot sources live in `store-assets/`. Regenerate
+the listing PNGs with `bash store-assets/render.sh`.
