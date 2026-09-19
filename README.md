@@ -19,6 +19,12 @@ The extension stores the key in Chrome sync storage and only contacts `api.zureq
 - Search selected page text from the context menu.
 - View current API usage and this session's estimated credit spend.
 
+## New shopping tools
+
+- **Build** turns an FPV drone, camera drone, 3D printer, gaming PC, or home-office idea into a searchable parts checklist. Custom comma-separated lists are supported too.
+- **Assistant** provides a lightweight chat interface for product search, market comparison, usage questions, and build handoffs, with optional on-device Prompt API summaries.
+- **Shop pages** on Allegro.pl and Amazon.com, Amazon.de, Amazon.pl, and Amazon.co.uk get a “Find on Zureq network” button that compares the page's title and price.
+
 ## Ideas implemented
 
 - Relevance-ranked product search with country, price, stock, and result-limit filters.
@@ -49,3 +55,5 @@ npm test
 ```
 
 To try the extension, open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**, selecting this repository directory.
+
+The optional Chrome Prompt API is available on Chrome 138+ when Gemini Nano is installed. It is only used on-device to improve intent parsing and summaries; the extension always has a rule-based fallback.

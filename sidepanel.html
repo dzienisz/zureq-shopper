@@ -17,6 +17,8 @@
   <nav class="tabs" aria-label="Main views">
     <button class="tab active" data-tab="search">Search</button>
     <button class="tab" data-tab="compare">Compare</button>
+    <button class="tab" data-tab="build">Build</button>
+    <button class="tab" data-tab="assistant">Assistant</button>
     <button class="tab" data-tab="usage">Usage</button>
   </nav>
   <main>
@@ -28,6 +30,7 @@
     </section>
 
     <section id="search-panel" class="panel">
+      <div id="source-banner" class="source-banner hidden"></div>
       <form id="search-form">
         <label class="search-box"><span class="sr-only">Search products</span><input id="query" required placeholder="Search products…" autocomplete="off"><button type="submit" aria-label="Search">⌕</button></label>
         <div class="form-grid">
@@ -54,6 +57,28 @@
       </form>
       <p class="hint">Comparisons run live across markets and can take a while or time out on the API side; retry with fewer markets if so.</p>
       <div id="compare-results"></div>
+    </section>
+
+    <section id="build-panel" class="panel hidden">
+      <div class="section-heading"><div><p class="eyebrow">PROJECT</p><h2>Build parts list</h2></div><button id="clear-build" class="secondary">Clear</button></div>
+      <label>What are you building?<textarea id="build-input" rows="3" placeholder="An FPV drone, gaming PC, or your own comma-separated list"></textarea></label>
+      <div id="build-presets" class="chips build-presets"></div>
+      <div class="form-row between"><label>Country<select id="build-country"></select></label><div id="build-estimate" class="estimate">Plan a build to begin.</div></div>
+      <button class="primary full" id="plan-build" type="button">Plan parts</button>
+      <div id="build-parts"></div>
+      <div id="build-actions" class="hidden"><p id="build-run-status" class="hint"></p><button class="primary full" id="search-build" type="button">Search all included</button></div>
+      <div id="build-summary"></div>
+    </section>
+
+    <section id="assistant-panel" class="panel hidden">
+      <div class="section-heading"><div><p class="eyebrow">SHOPPING ASSISTANT</p><h2>Ask Zureq</h2></div><span id="ai-status" class="ai-status">on-device AI: off</span></div>
+      <div id="assistant-messages" class="assistant-messages"></div>
+      <div id="assistant-suggestions" class="chips">
+        <button class="chip suggestion">Parts for an FPV drone</button>
+        <button class="chip suggestion">Compare "DJI Mini 4" in PL and DE</button>
+        <button class="chip suggestion">How many credits left?</button>
+      </div>
+      <form id="assistant-form" class="assistant-form"><input id="assistant-input" placeholder="Ask about products, markets, or a build…" autocomplete="off"><button class="primary" type="submit">Send</button></form>
     </section>
 
     <section id="usage-panel" class="panel hidden">
