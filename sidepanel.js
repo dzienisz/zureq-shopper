@@ -258,8 +258,19 @@ async function buildCheckout(groupIndex) {
     const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
     if (target) target.innerHTML = url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>` : 'No checkout URL returned.';
   } catch (error) {
-    if (target) target.textContent = 'The shop could not create one multi-item link. Try the individual item links from Search.';
-    handleError(error);
+    if (error?.code !== 'API_ERROR' && error?.code !== 'INVALID_ARGS' || group.picks.length < 2) {
+      handleError(error);
+      return;
+    }
+    const links = [];
+    for (const { part, candidate } of group.picks) {
+      try {
+        const data = await tool('create_checkout_link', { shopId: group.shopId, lines: [{ sku: candidate.sku, quantity: 1 }] });
+        const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
+        if (url) links.push(`<li>${esc(part.name)}: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></li>`);
+      } catch (itemError) { handleError(itemError); }
+    }
+    if (target) target.innerHTML = `<p class="hint">This shop takes one product per link.</p><ul>${links.join('')}</ul>`;
   }
 }
 
