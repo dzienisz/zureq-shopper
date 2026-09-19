@@ -2,9 +2,15 @@ import {
   TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool,
   getCachedMarkets, getSearchHistory
 } from './zureq.js';
+import { BUILD_TEMPLATES, partsForBuild } from './builds.js';
+import { languageModelStatus, resolveIntent, summarizeWithModel } from './assistant.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { products: [], details: new Map(), history: [], markets: [], selectedMarkets: [], sessionCredits: 0 };
+const state = {
+  products: [], assistantProducts: [], details: new Map(), history: [], markets: [],
+  selectedMarkets: [], sessionCredits: 0, source: null,
+  build: { text: '', templateId: '', parts: [], running: false }
+};
 let panelReady = false;
 let queuedPending = null;
 let handledPending = '';
@@ -31,7 +37,7 @@ function activeTab() {
 function showNoKey(missing) {
   $('no-key').classList.toggle('hidden', !missing);
   if (missing) document.querySelectorAll('main > .panel').forEach((panel) => panel.classList.add('hidden'));
-  else ['search', 'compare', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== activeTab()));
+  else ['search', 'compare', 'build', 'assistant', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== activeTab()));
 }
 function handleError(error) {
   if (error?.code === 'NO_KEY') {
@@ -94,8 +100,11 @@ function renderProducts() {
     const key = productKey(product);
     const details = state.details.get(key);
     const image = product.imageUrl ? `<img class="product-image" src="${esc(product.imageUrl)}" alt="">` : '<div class="product-image"></div>';
+    const cheaper = state.source && Number.isFinite(Number(state.source.price)) &&
+      String(state.source.currency || '').toUpperCase() === String(product.currency || '').toUpperCase() &&
+      Number(product.price) < Number(state.source.price);
     const detailHtml = details ? `<div class="details">${details.description ? `<p>${esc(details.description)}</p>` : ''}${details.variants?.length ? `<label>Variant<select class="variant-select" data-sku="${esc(product.sku)}">${details.variants.map((variant) => `<option value="${esc(variant.sku)}">${esc(variant.name || variant.title || variant.sku)}</option>`).join('')}</select></label>` : ''}<div class="checkout-area" data-checkout="${esc(product.sku)}"></div></div>` : '';
-    return `<article class="card" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}">${image}<div><h3>${esc(decodeEntities(product.name))}</h3><div class="meta">${esc(product.shopName || product.shopId || 'Unknown shop')} · ${esc(product.category || 'General')}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}</div><div class="${product.inStock ? 'stock' : 'stock out'}">${product.inStock ? 'In stock' : 'Out of stock'}</div></div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout link</button></div>${detailHtml}</article>`;
+    return `<article class="card" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}">${image}<div><h3>${esc(decodeEntities(product.name))}</h3><div class="meta">${esc(product.shopName || product.shopId || 'Unknown shop')} · ${esc(product.category || 'General')}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}${cheaper ? ' <span class="cheaper">cheaper</span>' : ''}</div><div class="${product.inStock ? 'stock' : 'stock out'}">${product.inStock ? 'In stock' : 'Out of stock'}</div></div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout link</button></div>${detailHtml}</article>`;
   }).join('') : '<p class="hint">No products found. Try a broader query or another country.</p>';
 }
 async function search(event) {
@@ -115,22 +124,24 @@ async function search(event) {
   } catch (error) { handleError(error); }
 }
 async function showDetails(card) {
-  const product = state.products.find((item) => String(item.shopId) === card.dataset.shopId && String(item.sku) === card.dataset.sku);
+  const product = productFromCard(card);
   if (!product) return;
   const key = productKey(product);
   if (state.details.has(key)) {
     state.details.delete(key);
-    renderProducts();
+    if (card.dataset.assistant) renderAssistantDetails(card, null);
+    else renderProducts();
     return;
   }
   try {
     const details = await tool('get_product', { shopId: product.shopId, sku: product.sku });
     state.details.set(key, details?.product || details);
-    renderProducts();
+    if (card.dataset.assistant) renderAssistantDetails(card, details?.product || details);
+    else renderProducts();
   } catch (error) { handleError(error); }
 }
 async function checkout(card) {
-  const product = state.products.find((item) => String(item.shopId) === card.dataset.shopId && String(item.sku) === card.dataset.sku);
+  const product = productFromCard(card);
   if (!product) return;
   const details = state.details.get(productKey(product));
   if (!details) {
@@ -150,9 +161,180 @@ async function checkout(card) {
   try {
     const data = await tool('create_checkout_link', { shopId: product.shopId, lines: [{ sku: variant || product.sku, quantity: 1 }] });
     const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
-    const area = card.querySelector('.checkout-area');
+    const area = card.querySelector('.checkout-area') || card.querySelector('.details-slot');
     area.innerHTML = url ? `<div class="checkout"><a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a><div class="card-actions"><button data-action="open-url" data-url="${esc(url)}">Open</button><button data-action="copy-url" data-url="${esc(url)}">Copy</button></div></div>` : '<div class="checkout">No checkout URL was returned.</div>';
   } catch (error) { handleError(error); }
+}
+
+async function saveBuild() {
+  await chrome.storage.local.set({ zureqBuild: state.build });
+}
+
+function renderBuildPresets() {
+  $('build-presets').innerHTML = BUILD_TEMPLATES.map((template) => `<button class="chip build-preset" data-template="${esc(template.id)}">${esc(template.label)}</button>`).join('');
+}
+
+function renderBuildParts() {
+  const parts = state.build.parts;
+  $('build-parts').innerHTML = parts.length ? parts.map((part, index) => `<div class="build-part" data-part="${index}">
+    <div class="build-part-head"><input type="checkbox" class="part-include" ${part.include ? 'checked' : ''}><input type="text" class="part-query" value="${esc(part.query)}"><span class="optional">${part.optional ? 'optional' : ''}</span></div>
+    <div class="build-candidates">${part.candidates?.length ? part.candidates.slice(0, 3).map((candidate, candidateIndex) => `<label class="candidate-row"><input type="radio" name="build-pick-${index}" class="part-pick" value="${candidateIndex}" ${part.pick?.sku === candidate.sku && part.pick?.shopId === candidate.shopId ? 'checked' : ''}><span class="candidate-name">${esc(decodeEntities(candidate.name))} · ${esc(candidate.shopName || candidate.shopId || '')}</span><span class="candidate-price">${esc(candidate.price)} ${esc(candidate.currency || '')}</span></label>`).join('') : '<span class="muted">Not searched yet.</span>'}</div>
+  </div>`).join('') : '<p class="hint">Choose a preset or describe a comma-separated list of parts.</p>';
+  $('build-actions').classList.toggle('hidden', !parts.length);
+  const count = parts.filter((part) => part.include).length;
+  $('build-estimate').textContent = count ? `~${count * TOOL_COSTS.search_products} credits` : 'No parts included.';
+}
+
+function renderBuildSummary() {
+  const groups = new Map();
+  state.build.parts.filter((part) => part.include && part.pick).forEach((part) => {
+    const key = part.pick.shopId || part.pick.shopName;
+    if (!groups.has(key)) groups.set(key, { shopId: part.pick.shopId, shopName: part.pick.shopName || part.pick.shopId, picks: [] });
+    groups.get(key).picks.push({ part, candidate: part.pick });
+  });
+  $('build-summary').innerHTML = groups.size ? `<div class="build-summary"><h3>Selected parts</h3>${[...groups.values()].map((group, index) => {
+    const totals = {};
+    group.picks.forEach(({ candidate }) => { const currency = candidate.currency || '—'; totals[currency] = (totals[currency] || 0) + (Number(candidate.price) || 0); });
+    return `<div class="summary-group" data-group="${index}"><h3>${esc(group.shopName)}</h3><div class="summary-total">${Object.entries(totals).map(([currency, total]) => `${total.toFixed(2)} ${esc(currency)}`).join(' · ')}</div><ul>${group.picks.map(({ part, candidate }) => `<li>${esc(part.name)} — ${esc(candidate.name)}</li>`).join('')}</ul><button class="secondary build-checkout" data-group="${index}">Checkout link</button><div class="build-link"></div></div>`;
+  }).join('')}</div>` : '';
+  state.build.groups = [...groups.values()];
+}
+
+async function planBuild(text = $('build-input').value) {
+  const planned = partsForBuild(text);
+  if (!planned) {
+    showNotice('Describe a build or enter parts separated by commas or new lines.', true);
+    return;
+  }
+  state.build = {
+    text: String(text).trim(),
+    templateId: planned.template?.id || '',
+    parts: planned.parts.map((part, index) => ({ ...part, id: index, include: !part.optional, candidates: [], pick: null })),
+    running: false
+  };
+  $('build-input').value = state.build.text;
+  await saveBuild();
+  renderBuildParts();
+  renderBuildSummary();
+}
+
+async function searchBuildParts() {
+  const included = state.build.parts.filter((part) => part.include);
+  if (!included.length || state.build.running) return;
+  if (!confirm(`Search ${included.length} part${included.length === 1 ? '' : 's'}? Estimated cost: ~${included.length * TOOL_COSTS.search_products} credits.`)) return;
+  state.build.running = true;
+  $('search-build').disabled = true;
+  for (let index = 0; index < state.build.parts.length; index += 1) {
+    const part = state.build.parts[index];
+    if (!part.include) continue;
+    $('build-run-status').textContent = `Searching ${index + 1} of ${state.build.parts.length}: ${part.query}`;
+    try {
+      const data = await tool('search_products', { query: part.query, country: $('build-country').value || undefined, inStockOnly: true, limit: 5 });
+      part.candidates = data?.products || [];
+      part.pick = null;
+    } catch (error) {
+      handleError(error);
+    }
+    await saveBuild();
+    renderBuildParts();
+  }
+  state.build.running = false;
+  $('search-build').disabled = false;
+  $('build-run-status').textContent = 'Search complete. Pick one result per included part.';
+  renderBuildSummary();
+  await saveBuild();
+}
+
+async function buildCheckout(groupIndex) {
+  const group = state.build.groups?.[groupIndex];
+  if (!group) return;
+  const button = document.querySelector(`.summary-group[data-group="${groupIndex}"] .build-checkout`);
+  const target = button?.parentElement.querySelector('.build-link');
+  try {
+    const data = await tool('create_checkout_link', {
+      shopId: group.shopId,
+      lines: group.picks.map(({ candidate }) => ({ sku: candidate.sku, quantity: 1 }))
+    });
+    const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
+    if (target) target.innerHTML = url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>` : 'No checkout URL returned.';
+  } catch (error) {
+    if (target) target.textContent = 'The shop could not create one multi-item link. Try the individual item links from Search.';
+    handleError(error);
+  }
+}
+
+function renderAssistantProducts(products) {
+  state.assistantProducts = products;
+  return products.slice(0, 5).map((product) => `<article class="assistant-product" data-assistant="true" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}"><strong>${esc(decodeEntities(product.name))}</strong><div class="meta">${esc(product.shopName || product.shopId || '')} · ${esc(product.price)} ${esc(product.currency || '')}</div><div class="card-actions"><button data-action="details">Details</button><button data-action="checkout">Checkout</button></div><div class="details-slot"></div></article>`).join('');
+}
+
+function renderAssistantComparison(data) {
+  const markets = normalizeComparison(data);
+  return markets.length ? markets.map((market) => {
+    const offers = market.offers || market.candidates || [];
+    return `<div class="market-result"><h3>${esc(market.label || market.key || market.market || 'Market')}</h3><p class="hint">${esc(market.delivery?.note || '')}</p><ul>${offers.slice(0, 3).map((offer) => `<li>${esc(decodeEntities(offer.name))} — ${esc(offer.approxPrice ?? offer.price)} ${esc(offer.approxCurrency || offer.currency || data.currency || '')}</li>`).join('')}</ul></div>`;
+  }).join('') : '<p class="hint">No comparison rows returned.</p>';
+}
+
+function productFromCard(card) {
+  const products = card.dataset.assistant ? state.assistantProducts : state.products;
+  return products.find((item) => String(item.shopId) === card.dataset.shopId && String(item.sku) === card.dataset.sku);
+}
+
+function renderAssistantDetails(card, details) {
+  const slot = card.querySelector('.details-slot');
+  if (!slot) return;
+  if (!details) {
+    slot.innerHTML = '';
+    return;
+  }
+  slot.innerHTML = `<div class="details">${details.description ? `<p>${esc(details.description)}</p>` : ''}${details.variants?.length ? `<label>Variant<select class="variant-select">${details.variants.map((variant) => `<option value="${esc(variant.sku)}">${esc(variant.name || variant.title || variant.sku)}</option>`).join('')}</select></label>` : ''}<div class="checkout-area"></div></div>`;
+}
+
+function appendAssistantMessage(html, cost = 0, user = false) {
+  const item = document.createElement('div');
+  item.className = `message${user ? ' user' : ''}`;
+  item.innerHTML = `<div class="bubble">${html}</div>${!user ? `<span class="credit-note">${cost} credits</span>` : ''}`;
+  $('assistant-messages').append(item);
+  $('assistant-messages').scrollTop = $('assistant-messages').scrollHeight;
+}
+
+async function assistantSend(text) {
+  const value = String(text || '').trim();
+  if (!value) return;
+  appendAssistantMessage(esc(value), 0, true);
+  $('assistant-input').value = '';
+  const intent = await resolveIntent(value, { markets: state.markets });
+  let cost = 0;
+  try {
+    if (intent.type === 'search') {
+      const data = await tool('search_products', { query: intent.query, country: intent.country, maxPrice: intent.maxPrice, inStockOnly: true, limit: 5 });
+      cost = TOOL_COSTS.search_products;
+      const products = data?.products || [];
+      const summary = await summarizeWithModel(value, data) || (products.length ? `I found ${products.length} relevant result${products.length === 1 ? '' : 's'}.` : 'I did not find matching products.');
+      appendAssistantMessage(`${esc(summary)}<div class="assistant-products">${renderAssistantProducts(products)}</div>`, cost);
+    } else if (intent.type === 'compare') {
+      const data = await tool('compare_markets', { query: intent.query, markets: intent.markets, currency: intent.currency || 'PLN' });
+      cost = TOOL_COSTS.compare_markets;
+      appendAssistantMessage(`Here is the live market comparison for <strong>${esc(intent.query)}</strong>:<div class="assistant-products">${renderAssistantComparison(data)}</div>`, cost);
+    } else if (intent.type === 'build') {
+      switchTab('build');
+      $('build-input').value = intent.text;
+      await planBuild(intent.text);
+      appendAssistantMessage('I opened the Build tab and planned the parts list. Include the parts you want, then search them together.', 0);
+    } else if (intent.type === 'usage') {
+      const data = await tool('get_usage', {});
+      appendAssistantMessage(`You have <strong>${esc(data?.remaining ?? 'unknown')}</strong> credits remaining (${esc(data?.used ?? 0)} used).`, 0);
+    } else if (intent.type === 'markets') {
+      appendAssistantMessage(`Available markets include ${state.markets.map((market) => esc(market.label)).join(', ') || 'the EU and World options'}.`, 0);
+    } else {
+      appendAssistantMessage('Try “find a mechanical keyboard under 200 PLN”, “compare DJI Mini 4 in PL and DE”, or “parts for an FPV drone”.', 0);
+    }
+  } catch (error) {
+    cost = error?.code === 'RATE_LIMIT' ? 0 : cost;
+    handleError(error);
+    appendAssistantMessage(esc(error instanceof ZureqError ? error.message : 'I could not complete that request.'), cost);
+  }
 }
 function normalizeComparison(data) {
   return data?.markets || data?.results || data?.comparisons || (Array.isArray(data) ? data : []);
@@ -199,7 +381,7 @@ async function loadUsage() {
 }
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach((button) => button.classList.toggle('active', button.dataset.tab === tab));
-  ['search', 'compare', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== tab));
+  ['search', 'compare', 'build', 'assistant', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== tab));
   if (tab === 'usage') loadUsage();
 }
 document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => switchTab(button.dataset.tab)));
@@ -219,6 +401,52 @@ $('search-results').addEventListener('click', (event) => {
   if (button.dataset.action === 'open-url') chrome.tabs.create({ url: button.dataset.url });
   if (button.dataset.action === 'copy-url') navigator.clipboard.writeText(button.dataset.url).then(() => showNotice('Checkout link copied.'));
 });
+$('assistant-messages').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-action]');
+  if (!button) return;
+  const card = button.closest('.assistant-product');
+  if (!card) return;
+  if (button.dataset.action === 'details') showDetails(card);
+  if (button.dataset.action === 'checkout') checkout(card);
+  if (button.dataset.action === 'open-url') chrome.tabs.create({ url: button.dataset.url });
+  if (button.dataset.action === 'copy-url') navigator.clipboard.writeText(button.dataset.url).then(() => showNotice('Checkout link copied.'));
+});
+$('build-presets').addEventListener('click', (event) => {
+  const button = event.target.closest('.build-preset');
+  if (!button) return;
+  const template = BUILD_TEMPLATES.find((item) => item.id === button.dataset.template);
+  if (template) { $('build-input').value = template.label; planBuild(template.label); }
+});
+$('plan-build').addEventListener('click', () => planBuild());
+$('search-build').addEventListener('click', searchBuildParts);
+$('clear-build').addEventListener('click', async () => {
+  state.build = { text: '', templateId: '', parts: [], running: false };
+  $('build-input').value = '';
+  await chrome.storage.local.remove('zureqBuild');
+  renderBuildParts();
+  renderBuildSummary();
+});
+$('build-parts').addEventListener('change', async (event) => {
+  const row = event.target.closest('.build-part');
+  if (!row) return;
+  const part = state.build.parts[Number(row.dataset.part)];
+  if (!part) return;
+  if (event.target.classList.contains('part-include')) part.include = event.target.checked;
+  if (event.target.classList.contains('part-query')) { part.query = event.target.value.trim(); part.name = part.query || part.name; }
+  if (event.target.classList.contains('part-pick')) part.pick = part.candidates[Number(event.target.value)] || null;
+  await saveBuild();
+  renderBuildParts();
+  renderBuildSummary();
+});
+$('build-summary').addEventListener('click', (event) => {
+  const button = event.target.closest('.build-checkout');
+  if (button) buildCheckout(Number(button.dataset.group));
+});
+$('assistant-form').addEventListener('submit', (event) => { event.preventDefault(); assistantSend($('assistant-input').value); });
+$('assistant-suggestions').addEventListener('click', (event) => {
+  const button = event.target.closest('.suggestion');
+  if (button) assistantSend(button.textContent);
+});
 
 async function applyPending(pending) {
   if (!pending?.query) return;
@@ -231,6 +459,10 @@ async function applyPending(pending) {
     if (state.selectedMarkets.length >= 2) await compare({ preventDefault() {} });
   } else {
     switchTab('search');
+    state.source = pending.source || null;
+    const source = state.source;
+    $('source-banner').classList.toggle('hidden', !source);
+    if (source) $('source-banner').textContent = `Comparing with ${source.site || 'this page'} price ${source.price != null ? `${source.price} ${source.currency || ''}` : ''}.`;
     $('query').value = pending.query;
     await search();
   }
@@ -257,14 +489,24 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 async function init() {
   state.history = await getSearchHistory();
   renderHistory();
+  renderBuildPresets();
+  $('ai-status').textContent = `on-device AI: ${await languageModelStatus()}`;
   try {
     const settings = await chrome.storage.sync.get({ defaultCountry: '', defaultCurrency: 'PLN' });
     $('currency').value = settings.defaultCurrency || 'PLN';
     await loadMarkets();
+    $('build-country').innerHTML = $('country').innerHTML;
     if (settings.defaultCountry) $('country').value = settings.defaultCountry;
     let pending;
     try { ({ zureqPending: pending } = await chrome.storage.session.get({ zureqPending: null })); } catch {}
     if (!pending) ({ zureqPending: pending } = await chrome.storage.local.get({ zureqPending: null }));
+    const savedBuild = await chrome.storage.local.get({ zureqBuild: null });
+    if (savedBuild.zureqBuild?.parts) {
+      state.build = savedBuild.zureqBuild;
+      $('build-input').value = state.build.text || '';
+      renderBuildParts();
+      renderBuildSummary();
+    }
     await applyPending(pending || queuedPending);
     panelReady = true;
     if (queuedPending && queuedPending !== pending) await applyPending(queuedPending);

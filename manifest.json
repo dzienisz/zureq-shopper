@@ -5,6 +5,20 @@
   "description": "Search products and compare markets with the Zureq MCP API.",
   "permissions": ["storage", "contextMenus", "sidePanel"],
   "host_permissions": ["https://api.zureq.io/*"],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://allegro.pl/oferta/*",
+        "https://allegro.pl/produkt/*",
+        "https://www.amazon.com/*",
+        "https://www.amazon.de/*",
+        "https://www.amazon.pl/*",
+        "https://www.amazon.co.uk/*"
+      ],
+      "js": ["pagescan.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
