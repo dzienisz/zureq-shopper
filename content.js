@@ -13,7 +13,7 @@
   shadow.querySelector('.close').addEventListener('click', () => host.remove());
   shadow.querySelector('.find').addEventListener('click', () => {
     const price = scan.extractPrice(document);
-    const source = { site: location.hostname, ...(price || {}) };
+    const source = { site: location.hostname, ...(price ? { price: price.value, currency: price.currency } : {}) };
     chrome.runtime.sendMessage({ type: 'zureq-search', query: scan.extractTitle(document), source }, (response) => {
       if (chrome.runtime.lastError || response?.ok === false) {
         const message = document.createElement('div');

@@ -178,7 +178,7 @@ function renderBuildParts() {
   const parts = state.build.parts;
   $('build-parts').innerHTML = parts.length ? parts.map((part, index) => `<div class="build-part" data-part="${index}">
     <div class="build-part-head"><input type="checkbox" class="part-include" ${part.include ? 'checked' : ''}><input type="text" class="part-query" value="${esc(part.query)}"><span class="optional">${part.optional ? 'optional' : ''}</span></div>
-    <div class="build-candidates">${part.candidates?.length ? part.candidates.slice(0, 3).map((candidate, candidateIndex) => `<label class="candidate-row"><input type="radio" name="build-pick-${index}" class="part-pick" value="${candidateIndex}" ${part.pick?.sku === candidate.sku && part.pick?.shopId === candidate.shopId ? 'checked' : ''}><span class="candidate-name">${esc(decodeEntities(candidate.name))} · ${esc(candidate.shopName || candidate.shopId || '')}</span><span class="candidate-price">${esc(candidate.price)} ${esc(candidate.currency || '')}</span></label>`).join('') : '<span class="muted">Not searched yet.</span>'}</div>
+    <div class="build-candidates">${part.candidates?.length ? part.candidates.slice(0, 3).map((candidate, candidateIndex) => `<label class="candidate-row"><input type="radio" name="build-pick-${index}" class="part-pick" value="${candidateIndex}" ${part.pick?.sku === candidate.sku && part.pick?.shopId === candidate.shopId ? 'checked' : ''}><span class="candidate-name">${esc(decodeEntities(candidate.name))} · ${esc(candidate.shopName || candidate.shopId || '')}</span><span class="candidate-price">${esc(candidate.price)} ${esc(candidate.currency || '')}</span></label>`).join('') : `<span class="muted">${part.searched ? `No results for “${esc(part.query)}”.` : 'Not searched yet.'}</span>`}</div>
   </div>`).join('') : '<p class="hint">Choose a preset or describe a comma-separated list of parts.</p>';
   $('build-actions').classList.toggle('hidden', !parts.length);
   const count = parts.filter((part) => part.include).length;
@@ -231,6 +231,7 @@ async function searchBuildParts() {
     try {
       const data = await tool('search_products', { query: part.query, country: $('build-country').value || undefined, inStockOnly: true, limit: 5 });
       part.candidates = data?.products || [];
+      part.searched = true;
       part.pick = null;
     } catch (error) {
       handleError(error);
@@ -513,7 +514,7 @@ async function init() {
     if (!pending) ({ zureqPending: pending } = await chrome.storage.local.get({ zureqPending: null }));
     const savedBuild = await chrome.storage.local.get({ zureqBuild: null });
     if (savedBuild.zureqBuild?.parts) {
-      state.build = savedBuild.zureqBuild;
+      state.build = { ...savedBuild.zureqBuild, running: false };
       $('build-input').value = state.build.text || '';
       renderBuildParts();
       renderBuildSummary();
