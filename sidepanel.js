@@ -25,10 +25,17 @@ async function clearPending() {
   try { await chrome.storage.session.remove('zureqPending'); } catch {}
   await chrome.storage.local.remove('zureqPending');
 }
+function activeTab() {
+  return document.querySelector('.tab.active')?.dataset.tab || 'search';
+}
+function showNoKey(missing) {
+  $('no-key').classList.toggle('hidden', !missing);
+  if (missing) document.querySelectorAll('main > .panel').forEach((panel) => panel.classList.add('hidden'));
+  else ['search', 'compare', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== activeTab()));
+}
 function handleError(error) {
   if (error?.code === 'NO_KEY') {
-    $('no-key').classList.remove('hidden');
-    document.querySelectorAll('main > .panel').forEach((panel) => panel.classList.add('hidden'));
+    showNoKey(true);
     return;
   }
   showNotice(error instanceof ZureqError ? error.message : 'Something went wrong. Please try again.', true);
@@ -36,6 +43,8 @@ function handleError(error) {
 async function tool(name, args) {
   const data = await callTool(name, args);
   state.sessionCredits += TOOL_COSTS[name] || 0;
+  showNoKey(false);
+  if ($('notice').classList.contains('error')) clearNotice();
   return data;
 }
 function normalizeMarkets(data) {
@@ -229,6 +238,12 @@ async function applyPending(pending) {
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'sync' && changes.zureqApiKey) {
+    const hasKey = Boolean(String(changes.zureqApiKey.newValue || '').trim());
+    showNoKey(!hasKey);
+    if (hasKey) { clearNotice(); if (activeTab() === 'usage') loadUsage(); }
+    return;
+  }
   if (!['session', 'local'].includes(areaName)) return;
   const pending = changes.zureqPending?.newValue;
   if (!pending) return;
