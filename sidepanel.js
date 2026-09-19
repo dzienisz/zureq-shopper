@@ -210,6 +210,7 @@ async function applyPending(pending) {
     $('compare-query').value = pending.query;
     if (state.selectedMarkets.length >= 2) await compare({ preventDefault() {} });
   } else {
+    switchTab('search');
     $('query').value = pending.query;
     await search();
   }
