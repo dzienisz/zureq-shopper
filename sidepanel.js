@@ -158,13 +158,24 @@ async function compare(event) {
   try {
     const data = await tool('compare_markets', { query: $('compare-query').value.trim(), markets: state.selectedMarkets, currency: $('currency').value.trim().toUpperCase() || 'PLN' });
     const results = normalizeComparison(data);
+    const targetCurrency = data?.currency || $('currency').value.toUpperCase();
     $('compare-results').innerHTML = results.length ? results.map((market) => {
-      const name = market.market || market.country || market.code || market.name || 'Market';
-      const candidates = market.candidates || market.products || market.items || [];
-      const stats = [market.shopCount != null && `${market.shopCount} shops`, market.minPrice != null && `min ${market.minPrice}`, market.medianPrice != null && `median ${market.medianPrice}`].filter(Boolean);
-      const delivery = market.deliveryNotes || market.deliveryNote || market.notes;
-      return `<article class="market-result"><h3>${esc(name)}</h3><div class="market-stats">${stats.map(esc).join(' · ') || 'Market results'}</div>${delivery ? `<p class="hint">${esc(delivery)}</p>` : ''}${candidates.length ? `<ul>${candidates.slice(0, 5).map((candidate) => `<li>${esc(candidate.name || candidate.productName || candidate.shopName || 'Candidate')} — ${esc(candidate.price ?? candidate.convertedPrice ?? '')} ${esc(candidate.currency || $('currency').value.toUpperCase())}</li>`).join('')}</ul>` : '<p class="hint">No candidates returned.</p>'}</article>`;
-    }).join('') : '<p class="hint">No comparison rows returned.</p>';
+      const name = market.label || market.market || market.country || market.name || market.key || market.code || 'Market';
+      const candidates = market.offers || market.candidates || market.products || market.items || [];
+      const range = market.priceRange;
+      const stats = [
+        market.shopCount != null && `${market.shopCount} shops`,
+        (market.offerCount ?? candidates.length) != null && `${market.offerCount ?? candidates.length} offers`,
+        range?.min != null && `from ${range.min} ${range.currency || targetCurrency}`,
+        market.minPrice != null && `min ${market.minPrice}`,
+        market.medianPrice != null && `median ${market.medianPrice}`
+      ].filter(Boolean);
+      const delivery = market.delivery?.note || market.deliveryNotes || market.deliveryNote || market.notes;
+      const priceOf = (offer) => offer.approxPrice != null
+        ? `≈ ${esc(offer.approxPrice)} ${esc(offer.approxCurrency || targetCurrency)} <span class="muted">(${esc(offer.price)} ${esc(offer.currency || '')})</span>`
+        : `${esc(offer.price ?? offer.convertedPrice ?? '')} ${esc(offer.currency || targetCurrency)}`;
+      return `<article class="market-result"><h3>${esc(name)}</h3><div class="market-stats">${stats.map((stat) => esc(stat)).join(' · ') || 'Market results'}</div>${delivery ? `<p class="hint">${esc(delivery)}</p>` : ''}${candidates.length ? `<ul>${candidates.slice(0, 5).map((offer) => `<li>${esc(decodeEntities(offer.name || offer.productName || 'Offer'))} <span class="muted">· ${esc(offer.shopName || offer.shopId || '')}</span> — ${priceOf(offer)}</li>`).join('')}</ul>` : '<p class="hint">No offers returned.</p>'}</article>`;
+    }).join('') + (data?.note ? `<p class="hint">${esc(data.note)}</p>` : '') : '<p class="hint">No comparison rows returned.</p>';
   } catch (error) { handleError(error); }
 }
 async function loadUsage() {
