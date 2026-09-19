@@ -103,4 +103,4 @@ Shopping
 | tile-small.png | 440×280 | Small promo tile |
 | tile-marquee.png | 1400×560 | Marquee promo tile |
 
-Regenerate: `./render.sh`
+Regenerate: `./render.sh` (needs Chrome + ImageMagick). Extension icons: `python3 make-icons.py` (needs Pillow).
