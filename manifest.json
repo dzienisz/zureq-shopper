@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "Zureq Shopper",
   "version": "1.0.0",
-  "description": "Search products and compare markets with the Zureq MCP API.",
+  "description": "Search products across Zureq shops, compare markets, plan builds, and find cheaper options on Allegro and Amazon.",
+  "minimum_chrome_version": "114",
   "permissions": ["storage", "contextMenus", "sidePanel"],
   "host_permissions": ["https://api.zureq.io/*"],
   "content_scripts": [
