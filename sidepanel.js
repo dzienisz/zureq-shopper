@@ -346,7 +346,8 @@ async function renderWatches() {
     const lastLine = last
       ? `Last: ${esc(watch.lastPrice)} ${esc(watch.lastCurrency || '')} · ${esc(last.shopName || last.shopId || 'Unknown shop')} · ${relativeTime(watch.lastCheckedAt)}`
       : 'Not checked yet';
-    return `<article class="watch-item" data-watch-id="${esc(watch.id)}"><h3>${esc(watch.name)} ${watch.alert ? '<span class="cheaper">Cheaper!</span>' : ''}</h3><div class="watch-meta"><span class="watch-tag">${esc(watch.type)}</span>${watch.country ? ` · ${esc(watch.country)}` : ''}</div><div class="watch-meta">Watching since ${esc(watch.baseline.price)} ${esc(watch.baseline.currency || '')}</div><div class="watch-meta">${lastLine}</div><div class="watch-actions"><button class="secondary" data-action="watch-search">Search</button><button class="secondary" data-action="remove-watch">Remove</button></div></article>`;
+    const cheaper = watch.lastPrice != null && Number(watch.lastPrice) < Number(watch.baseline.price);
+    return `<article class="watch-item" data-watch-id="${esc(watch.id)}"><h3>${esc(watch.name)} ${cheaper ? '<span class="cheaper">Cheaper!</span>' : ''}</h3><div class="watch-meta"><span class="watch-tag">${esc(watch.type)}</span>${watch.country ? ` · ${esc(watch.country)}` : ''}</div><div class="watch-meta">Watching since ${esc(watch.baseline.price)} ${esc(watch.baseline.currency || '')}</div><div class="watch-meta">${lastLine}</div><div class="watch-actions"><button class="secondary" data-action="watch-search">Search</button><button class="secondary" data-action="remove-watch">Remove</button></div></article>`;
   }).join('') : '<p class="hint">Nothing watched yet. Use “Watch” on a product or “Watch this search” under results.</p>';
 }
 
