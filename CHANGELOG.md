@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- Added a local watchlist with scheduled price-drop checks and notifications.
+
 ## [1.0.0] - 2026-09-19
 
 - Added product search, market comparison, usage tracking, Options, and

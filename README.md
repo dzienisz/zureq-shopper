@@ -18,6 +18,7 @@ The extension stores the key in Chrome sync storage and only contacts `api.zureq
 - Compare 2–4 markets in a selected currency.
 - Search selected page text from the context menu.
 - View current API usage and this session's estimated credit spend.
+- Save product and search watches for scheduled price-drop alerts.
 
 ## New shopping tools
 

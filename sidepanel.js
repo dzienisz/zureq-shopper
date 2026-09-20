@@ -4,6 +4,7 @@ import {
 } from './zureq.js';
 import { BUILD_TEMPLATES, partsForBuild } from './builds.js';
 import { languageModelStatus, resolveIntent, summarizeWithModel } from './assistant.js';
+import { addWatch, clearAlerts, getWatches, removeWatch } from './watchlist.js';
 
 const $ = (id) => document.getElementById(id);
 const state = {
@@ -37,7 +38,7 @@ function activeTab() {
 function showNoKey(missing) {
   $('no-key').classList.toggle('hidden', !missing);
   if (missing) document.querySelectorAll('main > .panel').forEach((panel) => panel.classList.add('hidden'));
-  else ['search', 'compare', 'build', 'assistant', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== activeTab()));
+  else ['search', 'compare', 'build', 'watch', 'assistant', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== activeTab()));
 }
 function handleError(error) {
   if (error?.code === 'NO_KEY') {
@@ -91,6 +92,49 @@ function priceValue(product) {
   const value = Number(product.price ?? product.convertedPrice ?? product.minPrice);
   return Number.isFinite(value) ? value : Number.POSITIVE_INFINITY;
 }
+function watchSearchBaseline(products) {
+  const finite = products.filter((product) => Number.isFinite(Number(product.price)) && product.currency);
+  if (!finite.length) return null;
+  const first = [...finite].sort((a, b) => Number(a.price) - Number(b.price))[0];
+  const currency = String(first.currency).toUpperCase();
+  const matching = finite.filter((product) => String(product.currency).toUpperCase() === currency);
+  const best = matching.sort((a, b) => Number(a.price) - Number(b.price))[0];
+  return { price: Number(best.price), currency };
+}
+async function watchProduct(product) {
+  const price = Number(product.price);
+  if (!Number.isFinite(price) || !product.currency) {
+    showNotice('This product has no comparable price yet.', true);
+    return;
+  }
+  const name = decodeEntities(product.name);
+  await addWatch({
+    type: 'product',
+    query: $('query').value.trim() || name,
+    country: $('country').value,
+    shopId: product.shopId,
+    sku: product.sku,
+    name,
+    baseline: { price, currency: product.currency }
+  });
+  showNotice(`Watching “${name}”.`);
+}
+async function watchSearch() {
+  const query = $('query').value.trim();
+  const baseline = watchSearchBaseline(state.products);
+  if (!query || !baseline) {
+    showNotice('Search results need comparable prices before they can be watched.', true);
+    return;
+  }
+  await addWatch({
+    type: 'query',
+    query,
+    country: $('country').value,
+    name: query,
+    baseline
+  });
+  showNotice(`Watching “${query}”.`);
+}
 function renderProducts() {
   const sort = $('sort').value;
   const products = [...state.products];
@@ -104,8 +148,11 @@ function renderProducts() {
       String(state.source.currency || '').toUpperCase() === String(product.currency || '').toUpperCase() &&
       Number(product.price) < Number(state.source.price);
     const detailHtml = details ? `<div class="details">${details.description ? `<p>${esc(details.description)}</p>` : ''}${details.variants?.length ? `<label>Variant<select class="variant-select" data-sku="${esc(product.sku)}">${details.variants.map((variant) => `<option value="${esc(variant.sku)}">${esc(variant.name || variant.title || variant.sku)}</option>`).join('')}</select></label>` : ''}<div class="checkout-area" data-checkout="${esc(product.sku)}"></div></div>` : '';
-    return `<article class="card" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}">${image}<div><h3>${esc(decodeEntities(product.name))}</h3><div class="meta">${esc(product.shopName || product.shopId || 'Unknown shop')} · ${esc(product.category || 'General')}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}${cheaper ? ' <span class="cheaper">cheaper</span>' : ''}</div><div class="${product.inStock ? 'stock' : 'stock out'}">${product.inStock ? 'In stock' : 'Out of stock'}</div></div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout link</button></div>${detailHtml}</article>`;
+    return `<article class="card" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}">${image}<div><h3>${esc(decodeEntities(product.name))}</h3><div class="meta">${esc(product.shopName || product.shopId || 'Unknown shop')} · ${esc(product.category || 'General')}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}${cheaper ? ' <span class="cheaper">cheaper</span>' : ''}</div><div class="${product.inStock ? 'stock' : 'stock out'}">${product.inStock ? 'In stock' : 'Out of stock'}</div></div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout link</button><button data-action="watch">Watch</button></div>${detailHtml}</article>`;
   }).join('') : '<p class="hint">No products found. Try a broader query or another country.</p>';
+  if (products.length) {
+    $('search-results').insertAdjacentHTML('afterbegin', '<div class="watch-search-row"><button data-action="watch-search">Watch this search</button></div>');
+  }
 }
 async function search(event) {
   event?.preventDefault();
@@ -277,7 +324,30 @@ async function buildCheckout(groupIndex) {
 
 function renderAssistantProducts(products) {
   state.assistantProducts = products;
-  return products.slice(0, 5).map((product) => `<article class="assistant-product" data-assistant="true" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}"><strong>${esc(decodeEntities(product.name))}</strong><div class="meta">${esc(product.shopName || product.shopId || '')} · ${esc(product.price)} ${esc(product.currency || '')}</div><div class="card-actions"><button data-action="details">Details</button><button data-action="checkout">Checkout</button></div><div class="details-slot"></div></article>`).join('');
+  return products.slice(0, 5).map((product) => `<article class="assistant-product" data-assistant="true" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}"><strong>${esc(decodeEntities(product.name))}</strong><div class="meta">${esc(product.shopName || product.shopId || '')} · ${esc(product.price)} ${esc(product.currency || '')}</div><div class="card-actions"><button data-action="details">Details</button><button data-action="checkout">Checkout</button><button data-action="watch">Watch</button></div><div class="details-slot"></div></article>`).join('');
+}
+
+function relativeTime(timestamp) {
+  if (!timestamp) return 'Not checked yet';
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+async function renderWatches() {
+  const watches = await getWatches();
+  const settings = await chrome.storage.sync.get({ watchInterval: '24' });
+  const hours = settings.watchInterval === '168' ? '168' : String(settings.watchInterval || '24');
+  $('watch-hint').textContent = `Checks run every ${hours} h in the background (~3 credits per watch). Change the interval in Options.`;
+  $('watch-list').innerHTML = watches.length ? watches.map((watch) => {
+    const last = watch.lastResult;
+    const lastLine = last
+      ? `Last: ${esc(watch.lastPrice)} ${esc(watch.lastCurrency || '')} · ${esc(last.shopName || last.shopId || 'Unknown shop')} · ${relativeTime(watch.lastCheckedAt)}`
+      : 'Not checked yet';
+    return `<article class="watch-item" data-watch-id="${esc(watch.id)}"><h3>${esc(watch.name)} ${watch.alert ? '<span class="cheaper">Cheaper!</span>' : ''}</h3><div class="watch-meta"><span class="watch-tag">${esc(watch.type)}</span>${watch.country ? ` · ${esc(watch.country)}` : ''}</div><div class="watch-meta">Watching since ${esc(watch.baseline.price)} ${esc(watch.baseline.currency || '')}</div><div class="watch-meta">${lastLine}</div><div class="watch-actions"><button class="secondary" data-action="watch-search">Search</button><button class="secondary" data-action="remove-watch">Remove</button></div></article>`;
+  }).join('') : '<p class="hint">Nothing watched yet. Use “Watch” on a product or “Watch this search” under results.</p>';
 }
 
 function renderAssistantComparison(data) {
@@ -393,8 +463,12 @@ async function loadUsage() {
 }
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach((button) => button.classList.toggle('active', button.dataset.tab === tab));
-  ['search', 'compare', 'build', 'assistant', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== tab));
+  ['search', 'compare', 'build', 'watch', 'assistant', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== tab));
   if (tab === 'usage') loadUsage();
+  if (tab === 'watch') {
+    clearAlerts().then(() => chrome.runtime.sendMessage({ type: 'zureq-clear-badge' })).catch(() => {});
+    renderWatches();
+  }
 }
 document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => switchTab(button.dataset.tab)));
 $('search-form').addEventListener('submit', search);
@@ -408,6 +482,14 @@ $('search-results').addEventListener('click', (event) => {
   const button = event.target.closest('[data-action]');
   if (!button) return;
   const card = button.closest('.card');
+  if (button.dataset.action === 'watch') {
+    watchProduct(productFromCard(card));
+    return;
+  }
+  if (button.dataset.action === 'watch-search') {
+    watchSearch();
+    return;
+  }
   if (button.dataset.action === 'details') showDetails(card);
   if (button.dataset.action === 'checkout') checkout(card);
   if (button.dataset.action === 'open-url') chrome.tabs.create({ url: button.dataset.url });
@@ -418,6 +500,10 @@ $('assistant-messages').addEventListener('click', (event) => {
   if (!button) return;
   const card = button.closest('.assistant-product');
   if (!card) return;
+  if (button.dataset.action === 'watch') {
+    watchProduct(productFromCard(card));
+    return;
+  }
   if (button.dataset.action === 'details') showDetails(card);
   if (button.dataset.action === 'checkout') checkout(card);
   if (button.dataset.action === 'open-url') chrome.tabs.create({ url: button.dataset.url });
@@ -454,6 +540,34 @@ $('build-summary').addEventListener('click', (event) => {
   const button = event.target.closest('.build-checkout');
   if (button) buildCheckout(Number(button.dataset.group));
 });
+$('watch-list').addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-action]');
+  const item = button?.closest('.watch-item');
+  if (!button || !item) return;
+  const watch = (await getWatches()).find((candidate) => candidate.id === item.dataset.watchId);
+  if (!watch) return;
+  if (button.dataset.action === 'remove-watch') {
+    await removeWatch(watch.id);
+    renderWatches();
+  } else if (button.dataset.action === 'watch-search') {
+    switchTab('search');
+    $('query').value = watch.query;
+    $('country').value = watch.country || '';
+    await search();
+  }
+});
+$('check-watches').addEventListener('click', async () => {
+  $('check-watches').disabled = true;
+  try {
+    const result = await chrome.runtime.sendMessage({ type: 'zureq-check-watchlist' });
+    showNotice(`Checked ${result?.checked || 0} watch${result?.checked === 1 ? '' : 'es'}; ${result?.alerts || 0} cheaper.`);
+    await renderWatches();
+  } catch {
+    showNotice('Could not check the watchlist.', true);
+  } finally {
+    $('check-watches').disabled = false;
+  }
+});
 $('assistant-form').addEventListener('submit', (event) => { event.preventDefault(); assistantSend($('assistant-input').value); });
 $('assistant-suggestions').addEventListener('click', (event) => {
   const button = event.target.closest('.suggestion');
@@ -489,6 +603,10 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     return;
   }
   if (!['session', 'local'].includes(areaName)) return;
+  if (areaName === 'local' && changes.zureqWatchlist && activeTab() === 'watch') {
+    renderWatches();
+    return;
+  }
   const pending = changes.zureqPending?.newValue;
   if (!pending) return;
   if (!panelReady) {
@@ -509,6 +627,7 @@ async function init() {
     await loadMarkets();
     $('build-country').innerHTML = $('country').innerHTML;
     if (settings.defaultCountry) $('country').value = settings.defaultCountry;
+    await renderWatches();
     let pending;
     try { ({ zureqPending: pending } = await chrome.storage.session.get({ zureqPending: null })); } catch {}
     if (!pending) ({ zureqPending: pending } = await chrome.storage.local.get({ zureqPending: null }));
