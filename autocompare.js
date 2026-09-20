@@ -7,12 +7,17 @@ export function cacheKey(country, query) {
 export function getCached(cache, key, now = Date.now()) {
   const entry = cache?.[key];
   if (!entry || now - Number(entry.savedAt) >= AUTO_COMPARE_TTL) return null;
-  return { best: entry.best ?? null };
+  if (!Array.isArray(entry.products)) return null;
+  return { products: entry.products };
 }
 
-export function putCached(cache, key, best, now = Date.now()) {
+export function putCached(cache, key, products, now = Date.now()) {
   const target = cache && typeof cache === 'object' ? cache : {};
-  target[key] = { best: best || null, savedAt: now };
+  const fields = ['name', 'price', 'currency', 'shopName', 'shopId', 'sku'];
+  const normalized = (Array.isArray(products) ? products : []).slice(0, 5).map((product) => Object.fromEntries(
+    fields.filter((field) => product?.[field] !== undefined).map((field) => [field, product[field]])
+  ));
+  target[key] = { products: normalized, savedAt: now };
   const entries = Object.entries(target)
     .sort(([, left], [, right]) => Number(left.savedAt) - Number(right.savedAt));
   entries.slice(0, -100).forEach(([entryKey]) => delete target[entryKey]);
