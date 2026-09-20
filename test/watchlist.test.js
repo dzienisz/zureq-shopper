@@ -111,6 +111,22 @@ test('checkWatchlist notifies newly cheaper watches', async () => {
   cleanup();
 });
 
+test('checkWatchlist does not re-alert a seen price unless it drops further', async () => {
+  const initial = [
+    { id: 'watch-1', type: 'query', query: 'lamp', country: '', name: 'Lamp', baseline: { price: 100, currency: 'PLN' }, alert: false, lastPrice: 80, lastCheckedAt: 1 },
+    { id: 'watch-2', type: 'query', query: 'desk', country: '', name: 'Desk', baseline: { price: 100, currency: 'PLN' }, alert: false, lastPrice: 80, lastCheckedAt: 1 }
+  ];
+  const cleanup = storageHarness(initial);
+  const notifications = [];
+  const result = await checkWatchlist(
+    async (_name, args) => ({ products: [{ name: args.query, price: args.query === 'lamp' ? 80 : 70, currency: 'PLN' }] }),
+    { notify: (watch) => notifications.push(watch.id) }
+  );
+  assert.equal(result.alerts, 1);
+  assert.deepEqual(notifications, ['watch-2']);
+  cleanup();
+});
+
 test('checkWatchlist stops after credits are exhausted', async () => {
   const initial = [
     { id: 'watch-1', type: 'query', query: 'lamp', country: '', name: 'Lamp', baseline: { price: 100, currency: 'PLN' }, alert: false, lastCheckedAt: null },

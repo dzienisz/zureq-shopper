@@ -132,7 +132,7 @@ export async function checkWatchlist(callTool, { notify = () => {}, setBadge = (
       const data = await callTool('search_products', args);
       const updated = applyResult(watch, evaluateWatch(watch, data?.products || []));
       const newLow = updated.alert && (watch.lastPrice == null || updated.lastPrice < watch.lastPrice);
-      updated.alert = Boolean(watch.alert || newLow);
+      updated.alert = Boolean(newLow || (watch.alert && updated.alert));
       next[index] = updated;
       checked += 1;
       if (!watch.alert && updated.alert) newlyAlerting.push(updated);
