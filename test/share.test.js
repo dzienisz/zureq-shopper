@@ -78,3 +78,14 @@ test('build Markdown groups shops, includes unpicked parts, and escapes pipes', 
 **Total:** 239.00 PLN (+ est. shipping 30.00 for 2 shops)
 _Made with Zureq Shopper_`);
 });
+
+test('Markdown shipping counts shops in other currencies', () => {
+  const mixed = {
+    ...build,
+    parts: [
+      ...build.parts.slice(0, 2),
+      { name: 'GPS', include: true, pick: { name: 'GPS', shopId: 'c', shopName: 'ShopC', price: 50, currency: 'EUR' } }
+    ]
+  };
+  assert.match(buildToMarkdown(mixed), /\*\*Total:\*\* 254\.00 PLN \(\+ est\. shipping 45\.00 for 3 shops\)/);
+});

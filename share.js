@@ -124,7 +124,7 @@ export function buildToMarkdown(build = {}, { shippingPerShop } = {}) {
   const perShop = [...shopGroups.values()].map((group) => `${escapeCell(group.name)} ${amountText(group.amounts)} (${group.items} ${group.items === 1 ? 'item' : 'items'})`).join(' · ');
   const dominantPicks = picks.filter((part) => currencyCode(part.pick.currency) === dominantCurrency);
   const itemsTotal = dominantPicks.reduce((sum, part) => sum + Number(part.pick.price), 0);
-  const shopCount = new Set(dominantPicks.map((part) => String(part.pick.shopId ?? part.pick.shopName ?? ''))).size;
+  const shopCount = new Set(picks.map((part) => String(part.pick.shopId ?? part.pick.shopName ?? ''))).size;
   const shipping = Number.isFinite(Number(shippingPerShop ?? build.shippingPerShop))
     ? Math.max(0, Number(shippingPerShop ?? build.shippingPerShop))
     : DEFAULT_SHIPPING;
