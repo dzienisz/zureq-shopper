@@ -34,6 +34,8 @@ FEATURES
   home-office setups, and custom parts lists.
 - Assistant for product search, market comparison, usage questions, and build
   handoffs, with optional on-device Prompt API support.
+- Price alerts for watched products and searches, with a configurable
+  background check interval.
 - “Find on Zureq network” button on Allegro.pl and supported Amazon pages,
   including a same-currency cheaper-result marker.
 - Context-menu actions, recent searches, usage tracking, and persisted build
@@ -78,7 +80,13 @@ contextMenus: Adds search and market-comparison actions for text selected by
 the user.
 
 sidePanel: Provides the extension's main search, compare, Build, Assistant, and
-Usage workspace.
+Watch and Usage workspace.
+
+alarms: Runs the user's saved price watches on the interval chosen in Options
+(default daily).
+
+notifications: Shows a notification when a watched product or search gets
+cheaper.
 
 https://api.zureq.io/* host permission: Sends the user's requested MCP tool
 calls to the Zureq API.

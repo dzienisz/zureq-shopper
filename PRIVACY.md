@@ -8,6 +8,8 @@ Zureq Shopper is designed to keep personal shopping data under your control.
   requests you make.
 - Search history, the current build state, and the market list cache are stored
   in `chrome.storage.local`.
+- The watchlist is stored locally, and its scheduled checks send watch queries
+  to the Zureq API on the interval selected in Options.
 - On supported Allegro and Amazon pages, the content script reads the page title
   and price only after you click the “Find on Zureq network” button.
 - Zureq Shopper has no tracking or analytics and does not sell data.
