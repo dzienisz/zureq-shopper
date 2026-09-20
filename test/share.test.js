@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildToMarkdown, decodeBuild, encodeBuild, serializeBuild, shareLink } from '../share.js';
+import { buildToMarkdown, decodeBuild, encodeBuild, serializeBuild, SHARE_BASE, shareLink } from '../share.js';
 
 const build = {
   text: '🚁 FPV build',
@@ -46,7 +46,8 @@ test('encode and decode round-trip preserves picks and drops candidates', () => 
 });
 
 test('decode accepts a full share URL', () => {
-  const link = shareLink('chrome-extension://example/sidepanel.html', build);
+  const link = shareLink(build);
+  assert.equal(link.startsWith(`${SHARE_BASE}#build=`), true);
   assert.equal(decodeBuild(link).parts[1].pick.sku, 'motors');
 });
 
@@ -88,4 +89,13 @@ test('Markdown shipping counts shops in other currencies', () => {
     ]
   };
   assert.match(buildToMarkdown(mixed), /\*\*Total:\*\* 254\.00 PLN \(\+ est\. shipping 45\.00 for 3 shops\)/);
+});
+
+test('Markdown treats missing pick prices as unavailable', () => {
+  const markdown = buildToMarkdown({
+    text: 'Missing price',
+    parts: [{ name: 'Part', include: true, pick: { name: 'Offer', shopName: 'Shop', price: null, currency: 'PLN' } }]
+  });
+  assert.match(markdown, /\| Part \| Offer \| Shop \| — \|/);
+  assert.doesNotMatch(markdown, /\*\*Total:\*\*/);
 });

@@ -283,11 +283,13 @@ function renderBuildSummary() {
   const totalsLine = totals.currency
     ? `${totals.shopCount} shops · items ${totals.itemsTotal.toFixed(2)} ${esc(totals.currency)} · est. shipping ${totals.shipping.toFixed(2)} ${esc(totals.currency)} · total ${totals.total.toFixed(2)} ${esc(totals.currency)}${[...totals.otherCurrencies.entries()].map(([currency, total]) => ` · + ${total.toFixed(2)} ${esc(currency)} (not totalled)`).join('')}`
     : '';
-  $('build-summary').innerHTML = groups.size ? `<div class="build-summary">${totalsLine ? `<p class="build-totals">${totalsLine}</p>` : ''}<h3>Selected parts</h3>${[...groups.values()].map((group, index) => {
+  const selectedContent = groups.size ? `${totalsLine ? `<p class="build-totals">${totalsLine}</p>` : ''}<h3>Selected parts</h3>${[...groups.values()].map((group, index) => {
     const totals = {};
     group.picks.forEach(({ candidate }) => { const currency = candidate.currency || '—'; totals[currency] = (totals[currency] || 0) + (Number(candidate.price) || 0); });
     return `<div class="summary-group" data-group="${index}"><h3>${esc(group.shopName)}</h3><div class="summary-total">${Object.entries(totals).map(([currency, total]) => `${total.toFixed(2)} ${esc(currency)}`).join(' · ')}</div><ul>${group.picks.map(({ part, candidate }) => `<li>${esc(part.name)} — ${esc(candidate.name)}</li>`).join('')}</ul><button class="secondary build-checkout" data-group="${index}">Checkout link</button><div class="build-link"></div></div>`;
-  }).join('')}${groups.size ? '<div id="share-actions" class="share-actions"><button class="secondary" data-action="copy-markdown">Copy Markdown</button><button class="secondary" data-action="copy-share-link">Copy share link</button></div>' : ''}</div>` : '';
+  }).join('')}` : '';
+  const shareActions = state.build.parts.length ? '<div id="share-actions" class="share-actions"><button class="secondary" data-action="copy-markdown">Copy Markdown</button><button class="secondary" data-action="copy-share-link">Copy share link</button></div>' : '';
+  $('build-summary').innerHTML = state.build.parts.length ? `<div class="build-summary">${selectedContent}${shareActions}</div>` : '';
   state.build.groups = [...groups.values()];
 }
 
@@ -642,8 +644,8 @@ $('build-summary').addEventListener('click', (event) => {
       .catch(() => showNotice('Could not copy Markdown.', true));
   }
   if (action === 'copy-share-link') {
-    navigator.clipboard.writeText(shareLink(chrome.runtime.getURL('sidepanel.html'), state.build))
-      .then(() => showNotice('Link copied — works for anyone with Zureq Shopper installed.'))
+    navigator.clipboard.writeText(shareLink(state.build))
+      .then(() => showNotice('Link copied — recipients paste it into Build → Import a shared build.'))
       .catch(() => showNotice('Could not copy the share link.', true));
   }
 });

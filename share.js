@@ -1,8 +1,10 @@
 import { BUILD_TEMPLATES } from './builds.js';
 
 const DEFAULT_SHIPPING = 15;
+export const SHARE_BASE = 'https://github.com/dzienisz/zureq-shopper';
 
 function finitePrice(value) {
+  if (value == null || (typeof value === 'string' && value.trim() === '')) return null;
   const price = Number(value);
   return Number.isFinite(price) ? price : null;
 }
@@ -152,6 +154,6 @@ export function buildToMarkdown(build = {}, { shippingPerShop } = {}) {
   return lines.join('\n');
 }
 
-export function shareLink(baseUrl, build) {
+export function shareLink(build, baseUrl = SHARE_BASE) {
   return `${baseUrl}#build=${encodeBuild(build)}`;
 }
