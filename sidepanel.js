@@ -6,6 +6,7 @@ import { BUILD_TEMPLATES, partsForBuild } from './builds.js';
 import { languageModelStatus, resolveIntent, summarizeWithModel } from './assistant.js';
 import { addWatch, clearAlerts, getWatches, removeWatch } from './watchlist.js';
 import { formatSavings, optimizeCart } from './optimizer.js';
+import { buildToMarkdown, decodeBuild, shareLink } from './share.js';
 
 const $ = (id) => document.getElementById(id);
 const state = {
@@ -222,6 +223,12 @@ function renderBuildPresets() {
   $('build-presets').innerHTML = BUILD_TEMPLATES.map((template) => `<button class="chip build-preset" data-template="${esc(template.id)}">${esc(template.label)}</button>`).join('');
 }
 
+function syncBuildInputs() {
+  $('build-input').value = state.build.text || '';
+  $('shipping-per-shop').value = String(state.build.shippingPerShop ?? 15);
+  $('optimize-result').textContent = state.build.optimizeResult || '';
+}
+
 function renderBuildParts() {
   const parts = state.build.parts;
   $('build-parts').innerHTML = parts.length ? parts.map((part, index) => `<div class="build-part" data-part="${index}">
@@ -279,7 +286,7 @@ function renderBuildSummary() {
     const totals = {};
     group.picks.forEach(({ candidate }) => { const currency = candidate.currency || '—'; totals[currency] = (totals[currency] || 0) + (Number(candidate.price) || 0); });
     return `<div class="summary-group" data-group="${index}"><h3>${esc(group.shopName)}</h3><div class="summary-total">${Object.entries(totals).map(([currency, total]) => `${total.toFixed(2)} ${esc(currency)}`).join(' · ')}</div><ul>${group.picks.map(({ part, candidate }) => `<li>${esc(part.name)} — ${esc(candidate.name)}</li>`).join('')}</ul><button class="secondary build-checkout" data-group="${index}">Checkout link</button><div class="build-link"></div></div>`;
-  }).join('')}</div>` : '';
+  }).join('')}${groups.size ? '<div id="share-actions" class="share-actions"><button class="secondary" data-action="copy-markdown">Copy Markdown</button><button class="secondary" data-action="copy-share-link">Copy share link</button></div>' : ''}</div>` : '';
   state.build.groups = [...groups.values()];
 }
 
@@ -303,6 +310,24 @@ async function planBuild(text = $('build-input').value) {
   await saveBuild();
   renderBuildParts();
   renderBuildSummary();
+}
+
+async function importBuild(value, replace = true) {
+  try {
+    const build = decodeBuild(value);
+    if (replace && state.build.parts.length && !confirm('Replace your current build?')) return false;
+    state.build = build;
+    syncBuildInputs();
+    await saveBuild();
+    renderBuildParts();
+    renderBuildSummary();
+    switchTab('build');
+    showNotice('Build imported.');
+    return true;
+  } catch (error) {
+    showNotice(error.message, true);
+    return false;
+  }
 }
 
 async function optimizeBuild() {
@@ -586,6 +611,7 @@ $('clear-build').addEventListener('click', async () => {
   renderBuildParts();
   renderBuildSummary();
 });
+$('import-build').addEventListener('click', () => importBuild($('import-code').value));
 $('shipping-per-shop').addEventListener('change', async () => {
   const value = Number($('shipping-per-shop').value);
   state.build.shippingPerShop = Number.isFinite(value) && value >= 0 ? value : 0;
@@ -608,6 +634,17 @@ $('build-parts').addEventListener('change', async (event) => {
 $('build-summary').addEventListener('click', (event) => {
   const button = event.target.closest('.build-checkout');
   if (button) buildCheckout(Number(button.dataset.group));
+  const action = event.target.closest('[data-action]')?.dataset.action;
+  if (action === 'copy-markdown') {
+    navigator.clipboard.writeText(buildToMarkdown(state.build, { shippingPerShop: state.build.shippingPerShop }))
+      .then(() => showNotice('Markdown copied.'))
+      .catch(() => showNotice('Could not copy Markdown.', true));
+  }
+  if (action === 'copy-share-link') {
+    navigator.clipboard.writeText(shareLink(chrome.runtime.getURL('sidepanel.html'), state.build))
+      .then(() => showNotice('Link copied — works for anyone with Zureq Shopper installed.'))
+      .catch(() => showNotice('Could not copy the share link.', true));
+  }
 });
 $('watch-list').addEventListener('click', async (event) => {
   const button = event.target.closest('[data-action]');
@@ -703,11 +740,13 @@ async function init() {
     const savedBuild = await chrome.storage.local.get({ zureqBuild: null });
     if (savedBuild.zureqBuild?.parts) {
       state.build = { shippingPerShop: 15, optimizeResult: '', ...savedBuild.zureqBuild, running: false };
-      $('build-input').value = state.build.text || '';
-      $('shipping-per-shop').value = String(state.build.shippingPerShop ?? 15);
-      $('optimize-result').textContent = state.build.optimizeResult || '';
+      syncBuildInputs();
       renderBuildParts();
       renderBuildSummary();
+    }
+    if (location.hash.startsWith('#build=')) {
+      await importBuild(location.hash, true);
+      history.replaceState(null, '', location.pathname);
     }
     await applyPending(pending || queuedPending);
     panelReady = true;

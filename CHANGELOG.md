@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.0] - 2026-09-20
 
 - Added a local watchlist with scheduled price-drop checks and notifications.
 - Added a multi-item cart optimizer that reduces estimated shipments across
@@ -9,6 +9,7 @@
   MediaExpert alongside Allegro and Amazon.
 - Added an optional cached inline “Cheaper on Zureq” badge on supported shop
   pages.
+- Added sharing and Markdown export/import for Build plans.
 
 ## [1.0.0] - 2026-09-19
 

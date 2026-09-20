@@ -24,6 +24,7 @@ The extension stores the key in Chrome sync storage and only contacts `api.zureq
 
 - **Build** turns an FPV drone, camera drone, 3D printer, gaming PC, or home-office idea into a searchable parts checklist. Custom comma-separated lists are supported too.
 - **Cart optimizer** can consolidate selected build parts into fewer shops using an estimated per-shop shipping cost.
+- **Build sharing** exports a plan as Markdown or a link and imports shared plans without candidate search results.
 - **Assistant** provides a lightweight chat interface for product search, market comparison, usage questions, and build handoffs, with optional on-device Prompt API summaries.
 - **Shop pages** on Allegro.pl, Amazon, Ceneo, eBay, x-kom.pl, and MediaExpert.pl get a “Find on Zureq network” button; optionally enable a cached inline “Cheaper on Zureq” check in Options.
 
