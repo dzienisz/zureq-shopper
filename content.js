@@ -2,9 +2,6 @@
   const scan = globalThis.ZureqPageScan;
   if (!scan || !scan.isProductPage(location.hostname, location.pathname, document)) return;
 
-  const price = scan.extractPrice(document);
-  const query = scan.extractTitle(document);
-  const source = { site: location.hostname, ...(price ? { price: price.value, currency: price.currency } : {}) };
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;z-index:2147483647;right:18px;bottom:18px;';
   const shadow = host.attachShadow({ mode: 'closed' });
@@ -29,6 +26,9 @@
   }
 
   find.addEventListener('click', () => {
+    const price = scan.extractPrice(document);
+    const query = scan.extractTitle(document);
+    const source = { site: location.hostname, ...(price ? { price: price.value, currency: price.currency } : {}) };
     chrome.runtime.sendMessage({ type: 'zureq-search', query, source }, (response) => {
       if (chrome.runtime.lastError || response?.ok === false) {
         const message = document.createElement('div');
@@ -40,11 +40,18 @@
     });
   });
 
-  chrome.storage.sync.get({ autoCompare: false }).then((settings) => {
-    if (!settings.autoCompare || !query) {
+  chrome.storage.sync.get({ autoCompare: false, defaultCountry: '' }).then((settings) => {
+    if (!settings.autoCompare) {
       showPlainButton();
       return;
     }
+    const query = scan.extractTitle(document);
+    if (!query) {
+      showPlainButton();
+      return;
+    }
+    const price = scan.extractPrice(document);
+    const source = { site: location.hostname, ...(price ? { price: price.value, currency: price.currency } : {}) };
     status.className = 'status';
     status.textContent = 'Checking Zureq…';
     chrome.runtime.sendMessage({ type: 'zureq-auto-compare', query, source }, (response) => {

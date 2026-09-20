@@ -2,6 +2,9 @@ import { callTool } from './zureq.js';
 import { checkWatchlist, WATCH_ALARM, WATCH_INTERVALS } from './watchlist.js';
 import { cacheKey, getCached, pickBest, putCached } from './autocompare.js';
 
+const autoCompareInFlight = new Map();
+let autoCompareWrite = Promise.resolve();
+
 const menus = [
   { id: 'zureq-search', title: 'Search Zureq for “%s”' },
   { id: 'zureq-compare', title: 'Compare markets for “%s”' }
@@ -52,18 +55,31 @@ async function autoCompare(message) {
   const stored = await chrome.storage.local.get({ zureqAutoCompareCache: {} });
   const cache = stored.zureqAutoCompareCache || {};
   const cached = getCached(cache, key);
-  if (cached) return { ...pickBest(cached.best ? [cached.best] : [], message.source || {}), fromCache: true, ok: true };
+  if (cached) return { ...pickBest(cached.products, message.source || {}), fromCache: true, ok: true };
+  let request = autoCompareInFlight.get(key);
+  if (!request) {
+    request = (async () => {
+      const data = await callTool('search_products', {
+        query: message.query,
+        country: country || undefined,
+        inStockOnly: true,
+        limit: 5
+      });
+      const products = data?.products || [];
+      autoCompareWrite = autoCompareWrite.catch(() => {}).then(async () => {
+        const latestStored = await chrome.storage.local.get({ zureqAutoCompareCache: {} });
+        const latest = latestStored.zureqAutoCompareCache || {};
+        putCached(latest, key, products);
+        await chrome.storage.local.set({ zureqAutoCompareCache: latest });
+      });
+      await autoCompareWrite;
+      return products;
+    })().finally(() => autoCompareInFlight.delete(key));
+    autoCompareInFlight.set(key, request);
+  }
   try {
-    const data = await callTool('search_products', {
-      query: message.query,
-      country: country || undefined,
-      inStockOnly: true,
-      limit: 5
-    });
-    const result = pickBest(data?.products || [], message.source || {});
-    putCached(cache, key, result.best);
-    await chrome.storage.local.set({ zureqAutoCompareCache: cache });
-    return { ...result, fromCache: false, ok: true };
+    const products = await request;
+    return { ...pickBest(products, message.source || {}), fromCache: false, ok: true };
   } catch (error) {
     return { ok: false, code: error?.code || 'API_ERROR' };
   }
