@@ -16,4 +16,6 @@ button { font: inherit; cursor: pointer; border-radius: 8px; padding: 10px 14px;
 #status { min-height: 20px; color: #19804a; font-size: 13px; }
 #status.error { color: var(--danger); }
 .hint { color: var(--muted); font-size: 11px; line-height: 1.45; margin: -5px 0 14px; }
+.switch-label { display: flex; align-items: center; gap: 8px; }
+.switch-label input { width: auto; margin: 0; }
 @media (max-width: 560px) { .settings { margin: 0; min-height: 100vh; border: 0; border-radius: 0; } }

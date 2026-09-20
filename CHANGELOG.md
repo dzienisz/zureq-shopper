@@ -5,6 +5,10 @@
 - Added a local watchlist with scheduled price-drop checks and notifications.
 - Added a multi-item cart optimizer that reduces estimated shipments across
   selected build parts.
+- Added generic product-page extraction for Ceneo, eBay, x-kom, and
+  MediaExpert alongside Allegro and Amazon.
+- Added an optional cached inline “Cheaper on Zureq” badge on supported shop
+  pages.
 
 ## [1.0.0] - 2026-09-19
 

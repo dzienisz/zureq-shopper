@@ -1,5 +1,6 @@
 import { callTool } from './zureq.js';
 import { checkWatchlist, WATCH_ALARM, WATCH_INTERVALS } from './watchlist.js';
+import { cacheKey, getCached, pickBest, putCached } from './autocompare.js';
 
 const menus = [
   { id: 'zureq-search', title: 'Search Zureq for “%s”' },
@@ -44,6 +45,30 @@ async function runWatchCheck() {
   return checkWatchlist(callTool, { notify: notifyWatch, setBadge: setWatchBadge });
 }
 
+async function autoCompare(message) {
+  const settings = await chrome.storage.sync.get({ defaultCountry: '' });
+  const country = settings.defaultCountry || '';
+  const key = cacheKey(country, message.query);
+  const stored = await chrome.storage.local.get({ zureqAutoCompareCache: {} });
+  const cache = stored.zureqAutoCompareCache || {};
+  const cached = getCached(cache, key);
+  if (cached) return { ...pickBest([cached], message.source || {}), fromCache: true, ok: true };
+  try {
+    const data = await callTool('search_products', {
+      query: message.query,
+      country: country || undefined,
+      inStockOnly: true,
+      limit: 5
+    });
+    const result = pickBest(data?.products || [], message.source || {});
+    putCached(cache, key, result.best);
+    await chrome.storage.local.set({ zureqAutoCompareCache: cache });
+    return { ...result, fromCache: false, ok: true };
+  } catch (error) {
+    return { ok: false, code: error?.code || 'API_ERROR' };
+  }
+}
+
 chrome.runtime.onInstalled.addListener(() => { scheduleWatchAlarm().catch(() => {}); });
 chrome.runtime.onStartup.addListener(() => { scheduleWatchAlarm().catch(() => {}); });
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -75,6 +100,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === 'zureq-auto-compare' && message.query) {
+    autoCompare(message).then(sendResponse).catch((error) => sendResponse({ ok: false, code: error?.code || 'API_ERROR' }));
+    return true;
+  }
   if (message?.type === 'zureq-check-watchlist') {
     runWatchCheck().then(sendResponse).catch(() => sendResponse({ checked: 0, alerts: 0 }));
     return true;

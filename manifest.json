@@ -14,7 +14,14 @@
         "https://www.amazon.com/*",
         "https://www.amazon.de/*",
         "https://www.amazon.pl/*",
-        "https://www.amazon.co.uk/*"
+        "https://www.amazon.co.uk/*",
+        "https://www.ceneo.pl/*",
+        "https://www.ebay.com/itm/*",
+        "https://www.ebay.de/itm/*",
+        "https://www.ebay.pl/itm/*",
+        "https://www.ebay.co.uk/itm/*",
+        "https://www.x-kom.pl/p/*",
+        "https://www.mediaexpert.pl/*"
       ],
       "js": ["pagescan.js", "content.js"],
       "run_at": "document_idle"

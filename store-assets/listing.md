@@ -38,8 +38,9 @@ FEATURES
   handoffs, with optional on-device Prompt API support.
 - Price alerts for watched products and searches, with a configurable
   background check interval.
-- “Find on Zureq network” button on Allegro.pl and supported Amazon pages,
-  including a same-currency cheaper-result marker.
+- “Find on Zureq network” button on Allegro.pl, Amazon, Ceneo, eBay, x-kom.pl,
+  and MediaExpert.pl, including an optional same-currency cheaper-result
+  marker.
 - Context-menu actions, recent searches, usage tracking, and persisted build
   state.
 
@@ -93,9 +94,10 @@ cheaper.
 https://api.zureq.io/* host permission: Sends the user's requested MCP tool
 calls to the Zureq API.
 
-Allegro.pl and Amazon content-script matches: Reads the title and price on a
-supported product page after the user clicks “Find on Zureq network” so the
-extension can search and compare that product.
+Allegro.pl, Amazon, Ceneo, eBay, x-kom.pl, and MediaExpert.pl content-script
+matches: Extracts the title and price on supported product pages after the
+user clicks “Find on Zureq network”, or automatically only when the user
+enables Auto-compare in Options.
 
 CATEGORY
 
