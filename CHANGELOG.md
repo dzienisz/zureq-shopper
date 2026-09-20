@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 - Added a local watchlist with scheduled price-drop checks and notifications.
+- Added a multi-item cart optimizer that reduces estimated shipments across
+  selected build parts.
 
 ## [1.0.0] - 2026-09-19
 

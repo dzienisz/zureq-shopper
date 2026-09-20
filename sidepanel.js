@@ -5,12 +5,13 @@ import {
 import { BUILD_TEMPLATES, partsForBuild } from './builds.js';
 import { languageModelStatus, resolveIntent, summarizeWithModel } from './assistant.js';
 import { addWatch, clearAlerts, getWatches, removeWatch } from './watchlist.js';
+import { formatSavings, optimizeCart } from './optimizer.js';
 
 const $ = (id) => document.getElementById(id);
 const state = {
   products: [], assistantProducts: [], details: new Map(), history: [], markets: [],
   selectedMarkets: [], sessionCredits: 0, source: null,
-  build: { text: '', templateId: '', parts: [], running: false }
+  build: { text: '', templateId: '', parts: [], running: false, shippingPerShop: 15, optimizeResult: '' }
 };
 let panelReady = false;
 let queuedPending = null;
@@ -228,8 +229,39 @@ function renderBuildParts() {
     <div class="build-candidates">${part.candidates?.length ? part.candidates.slice(0, 3).map((candidate, candidateIndex) => `<label class="candidate-row"><input type="radio" name="build-pick-${index}" class="part-pick" value="${candidateIndex}" ${part.pick?.sku === candidate.sku && part.pick?.shopId === candidate.shopId ? 'checked' : ''}><span class="candidate-name">${esc(decodeEntities(candidate.name))} · ${esc(candidate.shopName || candidate.shopId || '')}</span><span class="candidate-price">${esc(candidate.price)} ${esc(candidate.currency || '')}</span></label>`).join('') : `<span class="muted">${part.searched ? `No results for “${esc(part.query)}”.` : 'Not searched yet.'}</span>`}</div>
   </div>`).join('') : '<p class="hint">Choose a preset or describe a comma-separated list of parts.</p>';
   $('build-actions').classList.toggle('hidden', !parts.length);
+  $('optimize-build').disabled = !parts.some((part) => part.include && part.candidates?.length);
   const count = parts.filter((part) => part.include).length;
   $('build-estimate').textContent = count ? `~${count * TOOL_COSTS.search_products} credits` : 'No parts included.';
+}
+
+function currentBuildTotals() {
+  const picks = state.build.parts
+    .filter((part) => part.include && part.pick && Number.isFinite(Number(part.pick.price)));
+  const counts = new Map();
+  let currency = null;
+  picks.forEach(({ pick }) => {
+    const code = String(pick.currency || '').toUpperCase();
+    if (!code) return;
+    const count = (counts.get(code) || 0) + 1;
+    if (!currency || count > counts.get(currency)) currency = code;
+  });
+  const dominant = picks.filter(({ pick }) => String(pick.currency || '').toUpperCase() === currency);
+  const itemsTotal = dominant.reduce((sum, { pick }) => sum + Number(pick.price), 0);
+  const shopIds = new Set(dominant.map(({ pick }) => String(pick.shopId ?? pick.shopName ?? '')));
+  const shipping = Number(state.build.shippingPerShop) * shopIds.size;
+  const otherCurrencies = new Map();
+  picks.filter(({ pick }) => String(pick.currency || '').toUpperCase() !== currency).forEach(({ pick }) => {
+    const code = String(pick.currency || '').toUpperCase() || '—';
+    otherCurrencies.set(code, (otherCurrencies.get(code) || 0) + Number(pick.price));
+  });
+  return {
+    currency,
+    itemsTotal: Number(itemsTotal.toFixed(2)),
+    shopCount: shopIds.size,
+    shipping: Number(shipping.toFixed(2)),
+    total: Number((itemsTotal + shipping).toFixed(2)),
+    otherCurrencies
+  };
 }
 
 function renderBuildSummary() {
@@ -239,7 +271,11 @@ function renderBuildSummary() {
     if (!groups.has(key)) groups.set(key, { shopId: part.pick.shopId, shopName: part.pick.shopName || part.pick.shopId, picks: [] });
     groups.get(key).picks.push({ part, candidate: part.pick });
   });
-  $('build-summary').innerHTML = groups.size ? `<div class="build-summary"><h3>Selected parts</h3>${[...groups.values()].map((group, index) => {
+  const totals = currentBuildTotals();
+  const totalsLine = totals.currency
+    ? `${totals.shopCount} shops · items ${totals.itemsTotal.toFixed(2)} ${esc(totals.currency)} · est. shipping ${totals.shipping.toFixed(2)} ${esc(totals.currency)} · total ${totals.total.toFixed(2)} ${esc(totals.currency)}${[...totals.otherCurrencies.entries()].map(([currency, total]) => ` · + ${total.toFixed(2)} ${esc(currency)} (not totalled)`).join('')}`
+    : '';
+  $('build-summary').innerHTML = groups.size ? `<div class="build-summary">${totalsLine ? `<p class="build-totals">${totalsLine}</p>` : ''}<h3>Selected parts</h3>${[...groups.values()].map((group, index) => {
     const totals = {};
     group.picks.forEach(({ candidate }) => { const currency = candidate.currency || '—'; totals[currency] = (totals[currency] || 0) + (Number(candidate.price) || 0); });
     return `<div class="summary-group" data-group="${index}"><h3>${esc(group.shopName)}</h3><div class="summary-total">${Object.entries(totals).map(([currency, total]) => `${total.toFixed(2)} ${esc(currency)}`).join(' · ')}</div><ul>${group.picks.map(({ part, candidate }) => `<li>${esc(part.name)} — ${esc(candidate.name)}</li>`).join('')}</ul><button class="secondary build-checkout" data-group="${index}">Checkout link</button><div class="build-link"></div></div>`;
@@ -257,12 +293,33 @@ async function planBuild(text = $('build-input').value) {
     text: String(text).trim(),
     templateId: planned.template?.id || '',
     parts: planned.parts.map((part, index) => ({ ...part, id: index, include: !part.optional, candidates: [], pick: null })),
-    running: false
+    running: false,
+    shippingPerShop: 15,
+    optimizeResult: ''
   };
   $('build-input').value = state.build.text;
+  $('shipping-per-shop').value = '15';
+  $('optimize-result').textContent = '';
   await saveBuild();
   renderBuildParts();
   renderBuildSummary();
+}
+
+async function optimizeBuild() {
+  const shippingPerShop = Number($('shipping-per-shop').value);
+  state.build.shippingPerShop = Number.isFinite(shippingPerShop) && shippingPerShop >= 0 ? shippingPerShop : 0;
+  const result = optimizeCart(state.build.parts, { shippingPerShop: state.build.shippingPerShop });
+  const assignments = new Map(result.assignments.map((assignment) => [String(assignment.partId), assignment.candidate]));
+  state.build.parts.forEach((part) => {
+    if (assignments.has(String(part.id))) part.pick = assignments.get(String(part.id));
+  });
+  state.build.optimizeResult = formatSavings(result) || 'Already optimal.';
+  const skipped = result.skipped.map((part) => part.name).join(', ');
+  if (skipped) state.build.optimizeResult += ` Skipped (no comparable offer): ${skipped}`;
+  await saveBuild();
+  renderBuildParts();
+  renderBuildSummary();
+  $('optimize-result').textContent = state.build.optimizeResult;
 }
 
 async function searchBuildParts() {
@@ -270,6 +327,8 @@ async function searchBuildParts() {
   if (!included.length || state.build.running) return;
   if (!confirm(`Search ${included.length} part${included.length === 1 ? '' : 's'}? Estimated cost: ~${included.length * TOOL_COSTS.search_products} credits.`)) return;
   state.build.running = true;
+  state.build.optimizeResult = '';
+  $('optimize-result').textContent = '';
   $('search-build').disabled = true;
   for (let index = 0; index < state.build.parts.length; index += 1) {
     const part = state.build.parts[index];
@@ -519,12 +578,21 @@ $('build-presets').addEventListener('click', (event) => {
 $('plan-build').addEventListener('click', () => planBuild());
 $('search-build').addEventListener('click', searchBuildParts);
 $('clear-build').addEventListener('click', async () => {
-  state.build = { text: '', templateId: '', parts: [], running: false };
+  state.build = { text: '', templateId: '', parts: [], running: false, shippingPerShop: 15, optimizeResult: '' };
   $('build-input').value = '';
+  $('shipping-per-shop').value = '15';
+  $('optimize-result').textContent = '';
   await chrome.storage.local.remove('zureqBuild');
   renderBuildParts();
   renderBuildSummary();
 });
+$('shipping-per-shop').addEventListener('change', async () => {
+  const value = Number($('shipping-per-shop').value);
+  state.build.shippingPerShop = Number.isFinite(value) && value >= 0 ? value : 0;
+  await saveBuild();
+  renderBuildSummary();
+});
+$('optimize-build').addEventListener('click', optimizeBuild);
 $('build-parts').addEventListener('change', async (event) => {
   const row = event.target.closest('.build-part');
   if (!row) return;
@@ -634,8 +702,10 @@ async function init() {
     if (!pending) ({ zureqPending: pending } = await chrome.storage.local.get({ zureqPending: null }));
     const savedBuild = await chrome.storage.local.get({ zureqBuild: null });
     if (savedBuild.zureqBuild?.parts) {
-      state.build = { ...savedBuild.zureqBuild, running: false };
+      state.build = { shippingPerShop: 15, optimizeResult: '', ...savedBuild.zureqBuild, running: false };
       $('build-input').value = state.build.text || '';
+      $('shipping-per-shop').value = String(state.build.shippingPerShop ?? 15);
+      $('optimize-result').textContent = state.build.optimizeResult || '';
       renderBuildParts();
       renderBuildSummary();
     }

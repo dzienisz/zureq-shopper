@@ -83,6 +83,8 @@ textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #1769e01a; }
 .candidate-row .candidate-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .candidate-price { font-weight: 800; white-space: nowrap; }
 .build-summary { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; }
+.shipping-label { margin: 12px 0 0; }
+.build-totals { color: var(--accent); font-size: 11px; font-weight: 800; line-height: 1.45; }
 .summary-group { border: 1px solid var(--line); border-radius: 9px; padding: 9px; margin: 8px 0; }
 .summary-group h3 { margin: 0 0 6px; font-size: 13px; }
 .summary-total { font-weight: 800; margin: 5px 0; }

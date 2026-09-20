@@ -32,6 +32,8 @@ FEATURES
 - Live comparison across 2–4 markets with delivery notes and converted prices.
 - Build planner for FPV drones, camera drones, 3D printers, gaming PCs,
   home-office setups, and custom parts lists.
+- Multi-item cart optimizer with one checkout per shop, optimized for fewest
+  shipments.
 - Assistant for product search, market comparison, usage questions, and build
   handoffs, with optional on-device Prompt API support.
 - Price alerts for watched products and searches, with a configurable
