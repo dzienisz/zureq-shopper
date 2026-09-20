@@ -20,7 +20,7 @@ test('cache entries expire after the configured TTL', () => {
   const cache = {};
   const key = cacheKey('PL', 'Camera');
   putCached(cache, key, product(10), 1000);
-  assert.deepEqual(getCached(cache, key, 1000 + AUTO_COMPARE_TTL - 1), product(10));
+  assert.deepEqual(getCached(cache, key, 1000 + AUTO_COMPARE_TTL - 1), { best: product(10) });
   assert.equal(getCached(cache, key, 1000 + AUTO_COMPARE_TTL), null);
   assert.equal(getCached(cache, key, 1000 + AUTO_COMPARE_TTL + 1), null);
 });

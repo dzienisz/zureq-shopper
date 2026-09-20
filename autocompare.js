@@ -7,7 +7,7 @@ export function cacheKey(country, query) {
 export function getCached(cache, key, now = Date.now()) {
   const entry = cache?.[key];
   if (!entry || now - Number(entry.savedAt) >= AUTO_COMPARE_TTL) return null;
-  return entry.best ?? null;
+  return { best: entry.best ?? null };
 }
 
 export function putCached(cache, key, best, now = Date.now()) {

@@ -52,7 +52,7 @@ async function autoCompare(message) {
   const stored = await chrome.storage.local.get({ zureqAutoCompareCache: {} });
   const cache = stored.zureqAutoCompareCache || {};
   const cached = getCached(cache, key);
-  if (cached) return { ...pickBest([cached], message.source || {}), fromCache: true, ok: true };
+  if (cached) return { ...pickBest(cached.best ? [cached.best] : [], message.source || {}), fromCache: true, ok: true };
   try {
     const data = await callTool('search_products', {
       query: message.query,
