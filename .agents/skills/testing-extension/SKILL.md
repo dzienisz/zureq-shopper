@@ -57,3 +57,34 @@ description: Load and exercise the zero-build Chrome side-panel extension with a
 - Product availability depends on country and query. Record the exact request
   arguments and separate empty live results from failed rendering; avoid spending
   extra credits on repeated queries without approval.
+
+## Packaged release verification
+- Run `bash scripts/package.sh`, extract its versioned ZIP into a fresh directory,
+  and load that directory unpacked. Disable the repository-loaded copy to avoid
+  duplicate context-menu entries; the fresh path has a distinct extension ID and
+  separate key storage.
+- In Chrome's folder picker, navigate to the extracted root and click Open with
+  no child folder selected. Verify Details → Loaded from before testing, so an
+  accidentally selected `icons/` directory is not mistaken for a package failure.
+- Independently compare extracted files with ZIP entries, check no development
+  or store-assets paths shipped, and scan all extracted bytes for key literals.
+  Do not alter extracted runtime files while testing the release artifact.
+- Include a selected-text context action in the paid budget: it automatically
+  submits another search even when an earlier toolbar search already passed.
+
+## Watchlist checks
+- After manifest permission changes, reload from the extension card itself;
+  merely re-enabling an old installation may leave new APIs unavailable.
+- Budget one paid search per watched item per check, including simulated drops
+  and unchanged-repeat checks; remove extra watches before one-item checks.
+- Background watch searches are not included in the panel's session estimate.
+  Capture both side-panel and service-worker Network events to count paid calls.
+  Treat account-wide remaining-credit deltas separately from nominal call costs.
+- For an explicitly authorized drop simulation, update one watch's baseline
+  price and lastPrice in side-panel DevTools, then click Check now normally.
+  Verify the native notification and badge, revisit Watch to clear alerts, and
+  repeat at the unchanged price to test suppression.
+- Read chrome.alarms.getAll() in worker DevTools after saving the interval.
+  Verify persistence and minutes as well as the visible Watch hint.
+- Remove test watches and restore the original interval before finishing, so
+  background alarms cannot silently spend more test credits.
