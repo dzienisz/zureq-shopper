@@ -243,11 +243,12 @@ function currentBuildTotals() {
     const code = String(pick.currency || '').toUpperCase();
     if (!code) return;
     const count = (counts.get(code) || 0) + 1;
-    if (!currency || count > counts.get(currency)) currency = code;
+    counts.set(code, count);
+    if (!currency || count > (counts.get(currency) || 0)) currency = code;
   });
   const dominant = picks.filter(({ pick }) => String(pick.currency || '').toUpperCase() === currency);
   const itemsTotal = dominant.reduce((sum, { pick }) => sum + Number(pick.price), 0);
-  const shopIds = new Set(dominant.map(({ pick }) => String(pick.shopId ?? pick.shopName ?? '')));
+  const shopIds = new Set(picks.map(({ pick }) => String(pick.shopId ?? pick.shopName ?? '')));
   const shipping = Number(state.build.shippingPerShop) * shopIds.size;
   const otherCurrencies = new Map();
   picks.filter(({ pick }) => String(pick.currency || '').toUpperCase() !== currency).forEach(({ pick }) => {

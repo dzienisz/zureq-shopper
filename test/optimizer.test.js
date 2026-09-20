@@ -53,3 +53,16 @@ test('reports baseline numbers and stays deterministic', () => {
   assert.deepEqual(first, second);
   assert.deepEqual(first.baseline, { itemsTotal: 200, shopCount: 2, shipping: 40, total: 240 });
 });
+
+test('does not treat missing prices as free', () => {
+  const result = optimizeCart([{
+    id: 'part',
+    name: 'Part',
+    include: true,
+    candidates: [
+      { shopId: 'free', shopName: 'Free', name: 'Missing price', price: null, currency: 'PLN' },
+      { shopId: 'paid', shopName: 'Paid', name: 'Paid item', price: 100, currency: 'PLN' }
+    ]
+  }]);
+  assert.equal(result.assignments[0].candidate.name, 'Paid item');
+});

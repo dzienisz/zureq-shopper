@@ -5,6 +5,7 @@ function candidateShopId(candidate) {
 }
 
 function candidatePrice(candidate) {
+  if (candidate?.price == null || (typeof candidate.price === 'string' && candidate.price.trim() === '')) return null;
   const price = Number(candidate?.price);
   return Number.isFinite(price) ? price : null;
 }
