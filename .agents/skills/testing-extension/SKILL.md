@@ -3,13 +3,13 @@ name: zureq-shopper-runtime-testing
 description: Load and exercise the zero-build Chrome side-panel extension with a small paid API budget.
 ---
 
-# Zureq Shopper runtime testing
+# ZUREQ Shopper runtime testing
 
 ## Setup
 - No npm install or build is needed; a local server is needed only for optional
   authorized shop-page fixtures.
 - In Chrome for Testing, open chrome://extensions, enable Developer mode, Load
-  unpacked, and select the repository folder. Pin Zureq Shopper in the toolbar.
+  unpacked, and select the repository folder. Pin ZUREQ Shopper in the toolbar.
 - Open Options from the extension menu or panel gear. Save a test API key and
   use Test connection (free get_usage) to confirm access. Never record a real
   key in plaintext; exercise Show/Hide with a dummy value.

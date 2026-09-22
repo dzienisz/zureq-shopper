@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.1] - 2026-09-21
+
+- Renamed the extension to ZUREQ Shopper.
+
 ## [1.1.0] - 2026-09-20
 
 - Added a local watchlist with scheduled price-drop checks and notifications.
