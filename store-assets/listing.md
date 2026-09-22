@@ -2,7 +2,7 @@
 
 ## Store title
 
-Zureq Shopper — Network Product Search & Price Compare
+ZUREQ Shopper — Network Product Search & Price Compare
 
 ## Summary
 
@@ -12,7 +12,7 @@ Search products across Zureq shops, compare markets, plan builds, and find cheap
 
 WHAT IT DOES
 
-Zureq Shopper gives you one focused shopping workspace for product discovery,
+ZUREQ Shopper gives you one focused shopping workspace for product discovery,
 market comparison, project planning, and price checking across supported shops.
 It connects to the Zureq MCP API with your own API key.
 
@@ -71,7 +71,7 @@ The optional Prompt API enhancement uses Chrome's on-device AI when available
 
 SINGLE PURPOSE
 
-Zureq Shopper helps people discover products and compare shopping options
+ZUREQ Shopper helps people discover products and compare shopping options
 across the Zureq network.
 
 PERMISSION JUSTIFICATIONS

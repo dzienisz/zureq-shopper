@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Zureq Shopper",
-  "version": "1.1.0",
+  "name": "ZUREQ Shopper",
+  "version": "1.1.1",
   "description": "Search products across Zureq shops, compare markets, plan builds, and find cheaper options on Allegro and Amazon.",
   "minimum_chrome_version": "114",
   "permissions": ["storage", "contextMenus", "sidePanel", "alarms", "notifications"],
@@ -32,7 +32,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Open Zureq Shopper"
+    "default_title": "Open ZUREQ Shopper"
   },
   "side_panel": {
     "default_path": "sidepanel.html"

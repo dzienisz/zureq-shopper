@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Package the raw Chrome extension files for the Chrome Web Store.
 #
-# This is not a build step. Zureq Shopper ships plain JavaScript, HTML, and
+# This is not a build step. ZUREQ Shopper ships plain JavaScript, HTML, and
 # CSS; this script only creates and verifies the distribution zip.
 set -euo pipefail
 
