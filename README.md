@@ -1,6 +1,6 @@
-# Zureq Shopper
+# ZUREQ Shopper
 
-Zureq Shopper is a small, zero-build Chrome extension for finding products, comparing markets, and creating checkout links through the [Zureq MCP API](https://zureq.io).
+ZUREQ Shopper is a small, zero-build Chrome extension for finding products, comparing markets, and creating checkout links through the [Zureq MCP API](https://zureq.io).
 
 ## Install
 
