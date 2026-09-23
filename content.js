@@ -32,7 +32,7 @@
     chrome.runtime.sendMessage({ type: 'zureq-search', query, source }, (response) => {
       if (chrome.runtime.lastError || response?.ok === false) {
         const message = document.createElement('div');
-        message.textContent = 'Click the Zureq Shopper toolbar icon to compare this page.';
+        message.textContent = 'Click the ZUREQ Shopper toolbar icon to compare this page.';
         message.style.cssText = 'position:fixed;right:18px;bottom:18px;padding:10px;background:#fff4dc;color:#815700;border-radius:8px;font:12px system-ui;z-index:2147483647';
         document.documentElement.append(message);
         setTimeout(() => message.remove(), 5000);
