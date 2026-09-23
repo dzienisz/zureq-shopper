@@ -27,7 +27,8 @@ $('settings-form').addEventListener('submit', async (event) => {
   await chrome.storage.sync.set({
     zureqApiKey: $('api-key').value.trim(),
     defaultCountry: $('default-country').value,
-    defaultCurrency: $('default-currency').value.trim().toUpperCase() || 'PLN'
+    defaultCurrency: $('default-currency').value.trim().toUpperCase() || 'PLN',
+    watchInterval: $('watch-interval').value
   });
   status('Options saved.');
 });
@@ -41,10 +42,11 @@ $('test-key').addEventListener('click', async () => {
   }
 });
 async function init() {
-  const settings = await chrome.storage.sync.get({ zureqApiKey: '', defaultCountry: '', defaultCurrency: 'PLN' });
+  const settings = await chrome.storage.sync.get({ zureqApiKey: '', defaultCountry: '', defaultCurrency: 'PLN', watchInterval: '24' });
   $('api-key').value = settings.zureqApiKey;
   $('default-currency').value = settings.defaultCurrency;
   $('default-country').value = settings.defaultCountry;
+  $('watch-interval').value = settings.watchInterval || '24';
   try {
     let markets = await getCachedMarkets();
     if (!markets && settings.zureqApiKey) {

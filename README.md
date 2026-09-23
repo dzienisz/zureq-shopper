@@ -1,6 +1,6 @@
-# Zureq Shopper
+# ZUREQ Shopper
 
-Zureq Shopper is a small, zero-build Chrome extension for finding products, comparing markets, and creating checkout links through the [Zureq MCP API](https://zureq.io).
+ZUREQ Shopper is a small, zero-build Chrome extension for finding products, comparing markets, and creating checkout links through the [Zureq MCP API](https://zureq.io).
 
 ## Install
 
@@ -18,6 +18,7 @@ The extension stores the key in Chrome sync storage and only contacts `api.zureq
 - Compare 2–4 markets in a selected currency.
 - Search selected page text from the context menu.
 - View current API usage and this session's estimated credit spend.
+- Save product and search watches for scheduled price-drop alerts.
 
 ## New shopping tools
 

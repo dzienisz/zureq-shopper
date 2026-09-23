@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Package the raw Chrome extension files for the Chrome Web Store.
 #
-# This is not a build step. Zureq Shopper ships plain JavaScript, HTML, and
+# This is not a build step. ZUREQ Shopper ships plain JavaScript, HTML, and
 # CSS; this script only creates and verifies the distribution zip.
 set -euo pipefail
 
@@ -17,7 +17,7 @@ ZIP="zureq-shopper-$VERSION.zip"
 rm -f "$ZIP"
 
 zip -q "$ZIP" \
-  manifest.json background.js zureq.js builds.js assistant.js pagescan.js content.js \
+  manifest.json background.js zureq.js builds.js assistant.js pagescan.js content.js watchlist.js \
   sidepanel.html sidepanel.js sidepanel.css \
   options.html options.js options.css \
   icons/icon16.png icons/icon48.png icons/icon128.png LICENSE
@@ -29,7 +29,7 @@ listing_has() { grep -qE "[[:space:]]$2\$" <<<"$1"; }
 
 listing="$(unzip -l "$ZIP")"
 echo "Verifying $ZIP:"
-for file in manifest.json background.js sidepanel.html LICENSE; do
+for file in manifest.json background.js watchlist.js sidepanel.html LICENSE; do
   listing_has "$listing" "$file" && ok "$file" || bad "missing $file"
 done
 listing_has "$listing" "test/" && bad "test/ must not ship" || ok "no test/"

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Zureq Shopper</title>
+  <title>ZUREQ Shopper</title>
   <link rel="stylesheet" href="sidepanel.css">
 </head>
 <body>
@@ -18,6 +18,7 @@
     <button class="tab active" data-tab="search">Search</button>
     <button class="tab" data-tab="compare">Compare</button>
     <button class="tab" data-tab="build">Build</button>
+    <button class="tab" data-tab="watch">Watch</button>
     <button class="tab" data-tab="assistant">Assistant</button>
     <button class="tab" data-tab="usage">Usage</button>
   </nav>
@@ -68,6 +69,12 @@
       <div id="build-parts"></div>
       <div id="build-actions" class="hidden"><p id="build-run-status" class="hint"></p><button class="primary full" id="search-build" type="button">Search all included</button></div>
       <div id="build-summary"></div>
+    </section>
+
+    <section id="watch-panel" class="panel hidden">
+      <div class="section-heading"><div><p class="eyebrow">PRICE ALERTS</p><h2>Price alerts / Watchlist</h2></div><button id="check-watches" class="secondary">Check now</button></div>
+      <p id="watch-hint" class="hint">Checks run every 24 h in the background (~3 credits per watch). Change the interval in Options.</p>
+      <div id="watch-list"></div>
     </section>
 
     <section id="assistant-panel" class="panel hidden">

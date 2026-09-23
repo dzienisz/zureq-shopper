@@ -3,13 +3,13 @@ name: zureq-shopper-runtime-testing
 description: Load and exercise the zero-build Chrome side-panel extension with a small paid API budget.
 ---
 
-# Zureq Shopper runtime testing
+# ZUREQ Shopper runtime testing
 
 ## Setup
 - No npm install or build is needed; a local server is needed only for optional
   authorized shop-page fixtures.
 - In Chrome for Testing, open chrome://extensions, enable Developer mode, Load
-  unpacked, and select the repository folder. Pin Zureq Shopper in the toolbar.
+  unpacked, and select the repository folder. Pin ZUREQ Shopper in the toolbar.
 - Open Options from the extension menu or panel gear. Save a test API key and
   use Test connection (free get_usage) to confirm access. Never record a real
   key in plaintext; exercise Show/Hide with a dummy value.
@@ -88,3 +88,24 @@ description: Load and exercise the zero-build Chrome side-panel extension with a
   Verify persistence and minutes as well as the visible Watch hint.
 - Remove test watches and restore the original interval before finishing, so
   background alarms cannot silently spend more test credits.
+
+## Optimizer, sharing and shop auto-compare
+- Use real returned offers to choose a small multi-part build with overlapping
+  shops; generic English or translated queries may legitimately return zero.
+  Reserve a few searches for data-driven adaptation rather than assuming stock.
+- Compare shipping-zero picks with per-part minimum prices, then compare a
+  high-shipping result against all combinations of the captured candidates.
+  Verify checked radios, distinct shops, item sums and shipping independently.
+- Paste Copy Markdown/share-link output into the Import textarea to inspect
+  clipboard content without installing clipboard utilities. Preserve the link
+  before Clear; test full-link/raw-code import and startup `#build=` separately.
+- MV3 workers may be asleep when capture starts. Confirm the worker target and
+  running Network observer before claiming absence or exact counts of requests.
+  A monitor that exits with StopIteration provides no negative-call evidence.
+- For cache tests, retain Network observation across reload and use a passive
+  content-script callback logpoint to inspect the actual response.fromCache,
+  without replacing responses or invoking another paid request yourself.
+- Auto-compare cache keys include country. A UI country change can test a fresh
+  key when repeating a measurement; count that extra paid call in the budget.
+- Restore opt-in auto-compare and default country after testing. Cached results
+  can be left to expire naturally when auto-compare is disabled.

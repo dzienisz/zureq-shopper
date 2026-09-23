@@ -2,7 +2,7 @@
 
 ## Store title
 
-Zureq Shopper — Network Product Search & Price Compare
+ZUREQ Shopper — Network Product Search & Price Compare
 
 ## Summary
 
@@ -12,7 +12,7 @@ Search products across Zureq shops, compare markets, plan builds, and find cheap
 
 WHAT IT DOES
 
-Zureq Shopper gives you one focused shopping workspace for product discovery,
+ZUREQ Shopper gives you one focused shopping workspace for product discovery,
 market comparison, project planning, and price checking across supported shops.
 It connects to the Zureq MCP API with your own API key.
 
@@ -34,6 +34,8 @@ FEATURES
   home-office setups, and custom parts lists.
 - Assistant for product search, market comparison, usage questions, and build
   handoffs, with optional on-device Prompt API support.
+- Price alerts for watched products and searches, with a configurable
+  background check interval.
 - “Find on Zureq network” button on Allegro.pl and supported Amazon pages,
   including a same-currency cheaper-result marker.
 - Context-menu actions, recent searches, usage tracking, and persisted build
@@ -66,7 +68,7 @@ The optional Prompt API enhancement uses Chrome's on-device AI when available
 
 SINGLE PURPOSE
 
-Zureq Shopper helps people discover products and compare shopping options
+ZUREQ Shopper helps people discover products and compare shopping options
 across the Zureq network.
 
 PERMISSION JUSTIFICATIONS
@@ -78,7 +80,13 @@ contextMenus: Adds search and market-comparison actions for text selected by
 the user.
 
 sidePanel: Provides the extension's main search, compare, Build, Assistant, and
-Usage workspace.
+Watch and Usage workspace.
+
+alarms: Runs the user's saved price watches on the interval chosen in Options
+(default daily).
+
+notifications: Shows a notification when a watched product or search gets
+cheaper.
 
 https://api.zureq.io/* host permission: Sends the user's requested MCP tool
 calls to the Zureq API.
