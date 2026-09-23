@@ -69,12 +69,17 @@ const INTENT_PROMPT = `Return only JSON for one intent. Schemas:
 {"type":"compare","query":"...","markets":["PL","DE"],"currency":"PLN"}
 {"type":"build","text":"..."} | {"type":"usage"} | {"type":"markets"} | {"type":"help"}.`;
 
+const MODEL_LANGUAGES = Object.freeze({
+  expectedInputs: [{ type: 'text', languages: ['en'] }],
+  expectedOutputs: [{ type: 'text', languages: ['en'] }]
+});
+
 async function modelSession(systemPrompt = INTENT_PROMPT) {
   if (!globalThis.LanguageModel?.availability) return null;
   try {
-    const availability = await globalThis.LanguageModel.availability();
+    const availability = await globalThis.LanguageModel.availability(MODEL_LANGUAGES);
     if (!['available', 'downloadable', 'downloading'].includes(availability)) return null;
-    return await globalThis.LanguageModel.create({ systemPrompt });
+    return await globalThis.LanguageModel.create({ systemPrompt, ...MODEL_LANGUAGES });
   } catch {
     return null;
   }
@@ -83,7 +88,7 @@ async function modelSession(systemPrompt = INTENT_PROMPT) {
 export async function languageModelStatus() {
   if (!globalThis.LanguageModel?.availability) return 'off';
   try {
-    const availability = await globalThis.LanguageModel.availability();
+    const availability = await globalThis.LanguageModel.availability(MODEL_LANGUAGES);
     return ['available', 'downloadable', 'downloading'].includes(availability) ? 'on' : 'off';
   } catch {
     return 'off';
