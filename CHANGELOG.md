@@ -2,6 +2,8 @@
 
 ## [1.2.0] - 2026-09-23
 
+- Declared expected input/output languages for the on-device Assistant model.
+
 - Added a multi-item cart optimizer that reduces estimated shipments across
   selected build parts.
 - Added generic product-page extraction for Ceneo, eBay, x-kom, and
