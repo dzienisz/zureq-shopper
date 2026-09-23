@@ -70,6 +70,10 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #
 textarea { display: block; width: 100%; resize: vertical; margin-top: 5px; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; color: var(--ink); background: #fff; outline: none; font: inherit; }
 textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #1769e01a; }
 .build-presets { margin: 10px 0 12px; }
+.import-build { margin: 8px 0 12px; color: var(--muted); font-size: 11px; }
+.import-build summary { cursor: pointer; font-weight: 700; }
+.import-build textarea { margin: 8px 0; }
+.import-build button { padding: 6px 9px; font-size: 11px; }
 .estimate { color: var(--accent); font-size: 11px; font-weight: 800; text-align: right; padding-top: 18px; }
 #build-country { min-width: 115px; }
 .build-part { border: 1px solid var(--line); border-radius: 10px; padding: 9px; margin: 8px 0; }
@@ -85,6 +89,7 @@ textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #1769e01a; }
 .build-summary { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; }
 .shipping-label { margin: 12px 0 0; }
 .build-totals { color: var(--accent); font-size: 11px; font-weight: 800; line-height: 1.45; }
+.share-actions { display: flex; gap: 6px; margin-top: 10px; }
 .summary-group { border: 1px solid var(--line); border-radius: 9px; padding: 9px; margin: 8px 0; }
 .summary-group h3 { margin: 0 0 6px; font-size: 13px; }
 .summary-total { font-weight: 800; margin: 5px 0; }

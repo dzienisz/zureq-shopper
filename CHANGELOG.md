@@ -8,6 +8,7 @@
   MediaExpert alongside Allegro and Amazon.
 - Added an optional cached inline “Cheaper on Zureq” badge on supported shop
   pages.
+- Added sharing and Markdown export/import for Build plans.
 
 ## [1.1.1] - 2026-09-21
 
