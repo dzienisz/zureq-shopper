@@ -1,5 +1,9 @@
 import { callTool } from './zureq.js';
 import { checkWatchlist, WATCH_ALARM, WATCH_INTERVALS } from './watchlist.js';
+import { cacheKey, getCached, pickBest, putCached } from './autocompare.js';
+
+const autoCompareInFlight = new Map();
+let autoCompareWrite = Promise.resolve();
 
 const menus = [
   { id: 'zureq-search', title: 'Search Zureq for “%s”' },
@@ -44,6 +48,43 @@ async function runWatchCheck() {
   return checkWatchlist(callTool, { notify: notifyWatch, setBadge: setWatchBadge });
 }
 
+async function autoCompare(message) {
+  const settings = await chrome.storage.sync.get({ defaultCountry: '' });
+  const country = settings.defaultCountry || '';
+  const key = cacheKey(country, message.query);
+  const stored = await chrome.storage.local.get({ zureqAutoCompareCache: {} });
+  const cache = stored.zureqAutoCompareCache || {};
+  const cached = getCached(cache, key);
+  if (cached) return { ...pickBest(cached.products, message.source || {}), fromCache: true, ok: true };
+  let request = autoCompareInFlight.get(key);
+  if (!request) {
+    request = (async () => {
+      const data = await callTool('search_products', {
+        query: message.query,
+        country: country || undefined,
+        inStockOnly: true,
+        limit: 5
+      });
+      const products = data?.products || [];
+      autoCompareWrite = autoCompareWrite.catch(() => {}).then(async () => {
+        const latestStored = await chrome.storage.local.get({ zureqAutoCompareCache: {} });
+        const latest = latestStored.zureqAutoCompareCache || {};
+        putCached(latest, key, products);
+        await chrome.storage.local.set({ zureqAutoCompareCache: latest });
+      });
+      await autoCompareWrite;
+      return products;
+    })().finally(() => autoCompareInFlight.delete(key));
+    autoCompareInFlight.set(key, request);
+  }
+  try {
+    const products = await request;
+    return { ...pickBest(products, message.source || {}), fromCache: false, ok: true };
+  } catch (error) {
+    return { ok: false, code: error?.code || 'API_ERROR' };
+  }
+}
+
 chrome.runtime.onInstalled.addListener(() => { scheduleWatchAlarm().catch(() => {}); });
 chrome.runtime.onStartup.addListener(() => { scheduleWatchAlarm().catch(() => {}); });
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -75,6 +116,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === 'zureq-auto-compare' && message.query) {
+    autoCompare(message).then(sendResponse).catch((error) => sendResponse({ ok: false, code: error?.code || 'API_ERROR' }));
+    return true;
+  }
   if (message?.type === 'zureq-check-watchlist') {
     runWatchCheck().then(sendResponse).catch(() => sendResponse({ checked: 0, alerts: 0 }));
     return true;

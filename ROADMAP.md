@@ -4,7 +4,7 @@
 
 - Price alerts / watchlist (this PR).
 - [In progress] Multi-item cart optimizer.
-- More shop integrations + inline price badge: Ceneo, eBay, x-kom, MediaExpert.
+- [Done] More shop integrations + inline price badge: Ceneo, eBay, x-kom, MediaExpert.
 - Share a build as link/Markdown.
 
 ## Ideas

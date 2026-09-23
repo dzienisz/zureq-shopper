@@ -4,6 +4,10 @@
 
 - Added a multi-item cart optimizer that reduces estimated shipments across
   selected build parts.
+- Added generic product-page extraction for Ceneo, eBay, x-kom, and
+  MediaExpert alongside Allegro and Amazon.
+- Added an optional cached inline “Cheaper on Zureq” badge on supported shop
+  pages.
 
 ## [1.1.1] - 2026-09-21
 

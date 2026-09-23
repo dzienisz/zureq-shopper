@@ -10,8 +10,11 @@ ZUREQ Shopper is designed to keep personal shopping data under your control.
   in `chrome.storage.local`.
 - The watchlist is stored locally, and its scheduled checks send watch queries
   to the Zureq API on the interval selected in Options.
-- On supported Allegro and Amazon pages, the content script reads the page title
-  and price only after you click the “Find on Zureq network” button.
+- On supported Allegro, Amazon, Ceneo, eBay, x-kom, and MediaExpert pages, the
+  content script reads the page title and price only after you click the “Find
+  on Zureq network” button, or automatically when you explicitly enable
+  Auto-compare in Options. Auto-compare sends a query to the Zureq API and
+  caches its result locally for six hours.
 - ZUREQ Shopper has no tracking or analytics and does not sell data.
 
 For questions or requests, open an issue in the
