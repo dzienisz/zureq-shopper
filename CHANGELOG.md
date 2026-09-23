@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+- Added a multi-item cart optimizer that reduces estimated shipments across
+  selected build parts.
+
 ## [1.1.1] - 2026-09-21
 
 - Renamed the extension to ZUREQ Shopper.
