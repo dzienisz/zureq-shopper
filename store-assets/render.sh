@@ -36,7 +36,7 @@ shot() {
 shot shot1-search 1280 800
 shot shot2-compare 1280 800
 shot shot3-build 1280 800
-shot shot4-assistant 1280 800
+shot shot4-watch 1280 800
 shot shot5-shop-page 1280 800
 shot tile-small 440 280
 shot tile-marquee 1400 560

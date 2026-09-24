@@ -6,24 +6,25 @@ ZUREQ Shopper — Network Product Search & Price Compare
 
 ## Summary
 
-Search products across Zureq shops, compare markets, plan builds, and find cheaper options on Allegro and Amazon.
+Search every Zureq shop, compare markets, plan builds, watch prices, and spot cheaper offers on Allegro, Amazon, Ceneo, eBay, x-kom and MediaExpert.
 
 ## Detailed description
 
 WHAT IT DOES
 
 ZUREQ Shopper gives you one focused shopping workspace for product discovery,
-market comparison, project planning, and price checking across supported shops.
-It connects to the Zureq MCP API with your own API key.
+market comparison, project planning, price alerts, and price checking across
+supported shops. It connects to the Zureq MCP API with your own API key.
 
 HOW IT WORKS
 
 1. Add your Zureq API key in Options.
 2. Search for a product or compare selected markets in the side panel.
 3. Build a parts list, ask the Assistant, or click the button on a supported
-   Allegro or Amazon product page.
+   shop product page.
 4. Review products, variants, prices, and checkout links before choosing where
    to buy.
+5. Watch a product or search and get notified when it gets cheaper.
 
 FEATURES
 
@@ -41,6 +42,7 @@ FEATURES
 - “Find on Zureq network” button on Allegro.pl, Amazon, Ceneo, eBay, x-kom.pl,
   and MediaExpert.pl, including an optional same-currency cheaper-result
   marker.
+- Share a build as a link or Markdown, and import builds shared with you.
 - Context-menu actions, recent searches, usage tracking, and persisted build
   state.
 
@@ -110,7 +112,7 @@ Shopping
 | shot1-search.png | 1280×800 | Screenshot 1 |
 | shot2-compare.png | 1280×800 | Screenshot 2 |
 | shot3-build.png | 1280×800 | Screenshot 3 |
-| shot4-assistant.png | 1280×800 | Screenshot 4 |
+| shot4-watch.png | 1280×800 | Screenshot 4 |
 | shot5-shop-page.png | 1280×800 | Screenshot 5 |
 | tile-small.png | 440×280 | Small promo tile |
 | tile-marquee.png | 1400×560 | Marquee promo tile |
