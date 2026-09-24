@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.1] - 2026-09-19
+
+- Refreshed the store summary and listing screenshots for the 1.2 feature set.
+
 ## [1.2.0] - 2026-09-23
 
 - Declared expected input/output languages for the on-device Assistant model.
