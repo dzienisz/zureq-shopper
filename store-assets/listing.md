@@ -6,7 +6,7 @@ ZUREQ Shopper — Network Product Search & Price Compare
 
 ## Summary
 
-Search all Zureq shops, compare markets, plan builds, watch prices, find cheaper offers on Allegro, Amazon, Ceneo, eBay and x-kom.
+Search all Zureq shops, compare markets, plan builds, watch prices, and check supported shop product pages for cheaper offers.
 
 ## Detailed description
 
@@ -39,9 +39,8 @@ FEATURES
   handoffs, with optional on-device Prompt API support.
 - Price alerts for watched products and searches, with a configurable
   background check interval.
-- “Find on Zureq network” button on Allegro.pl, Amazon, Ceneo, eBay, x-kom.pl,
-  and MediaExpert.pl, including an optional same-currency cheaper-result
-  marker.
+- “Find on Zureq network” button on supported shop product pages, including
+  an optional same-currency cheaper-result marker.
 - Share a build as a link or Markdown, and import builds shared with you.
 - Context-menu actions, recent searches, usage tracking, and persisted build
   state.
