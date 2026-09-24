@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ZUREQ Shopper",
-  "version": "1.2.0",
-  "description": "Search products across Zureq shops, compare markets, plan builds, and find cheaper options on Allegro and Amazon.",
+  "version": "1.2.1",
+  "description": "Search every Zureq shop, compare markets, plan builds, watch prices, and spot cheaper offers on Allegro, Amazon, Ceneo, eBay, x-kom and MediaExpert.",
   "minimum_chrome_version": "114",
   "permissions": ["storage", "contextMenus", "sidePanel", "alarms", "notifications"],
   "host_permissions": ["https://api.zureq.io/*"],
