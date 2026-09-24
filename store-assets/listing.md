@@ -6,7 +6,7 @@ ZUREQ Shopper — Network Product Search & Price Compare
 
 ## Summary
 
-Search every Zureq shop, compare markets, plan builds, watch prices, find cheaper offers on Allegro, Amazon, Ceneo, eBay, x-kom, MediaExpert.
+Search all Zureq shops, compare markets, plan builds, watch prices and find cheaper offers on Allegro, Amazon, Ceneo, eBay, x-kom Search all Zureq shops, compare markets, plan builds, watch prices, find cheaper offers on Allegro, Amazon, Ceneo, eBay, x-kom and more. more.
 
 ## Detailed description
 

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ZUREQ Shopper",
   "version": "1.2.1",
-  "description": "Search every Zureq shop, compare markets, plan builds, watch prices, find cheaper offers on Allegro, Amazon, Ceneo, eBay, x-kom, MediaExpert.",
+  "description": "Search all Zureq shops, compare markets, plan builds, watch prices and find cheaper offers on Allegro, Amazon, Ceneo, eBay, x-kom Search all Zureq shops, compare markets, plan builds, watch prices, find cheaper offers on Allegro, Amazon, Ceneo, eBay, x-kom and more. more.",
   "minimum_chrome_version": "114",
   "permissions": ["storage", "contextMenus", "sidePanel", "alarms", "notifications"],
   "host_permissions": ["https://api.zureq.io/*"],
