@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.2] - 2026-09-19
+
+- Reworded the store summary and description to drop the retailer name list (Chrome Web Store keyword policy).
+
 ## [1.2.1] - 2026-09-19
 
 - Refreshed the store summary and listing screenshots for the 1.2 feature set.
