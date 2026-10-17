@@ -1,9 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addSearchHistory, callTool, locationArgs, mapApiError, normalizeMarkets,
-  parseToolResponse, ZureqError
+  addSearchHistory, callTool, chunkLines, freshnessLabel, getCachedShopInfo,
+  getShopInfo, locationArgs, mapApiError, normalizeMarkets, parseToolResponse,
+  stockLabel, ZureqError
 } from '../zureq.js';
+
+const originalChrome = globalThis.chrome;
+const originalFetch = globalThis.fetch;
 
 test('maps country codes and regions to search location arguments', () => {
   assert.deepEqual(locationArgs(''), {});
@@ -103,4 +107,106 @@ test('persists the newest search history rather than the old array', async () =>
   assert.deepEqual(await addSearchHistory('new search'), ['new search', 'old search', 'another search']);
   assert.deepEqual(saved, { zureqHistory: ['new search', 'old search', 'another search'] });
   delete globalThis.chrome;
+});
+
+test('formats product stock labels', () => {
+  assert.equal(stockLabel({ inStock: false, stockQty: 4 }), 'Out of stock');
+  assert.equal(stockLabel({ inStock: true, stockQty: 99 }), 'Available');
+  assert.equal(stockLabel({ inStock: true }), 'Available');
+  assert.equal(stockLabel({ inStock: true, stockQty: 4 }), '4 in stock');
+});
+
+test('formats product freshness labels', () => {
+  const syncedAt = '2026-01-01T00:00:00.000Z';
+  const timestamp = Date.parse(syncedAt);
+  assert.equal(freshnessLabel({ live: true, syncedAt }, timestamp), 'Live from shop');
+  assert.equal(freshnessLabel({ live: false }, timestamp), '');
+  assert.equal(freshnessLabel({ syncedAt }, timestamp + 59999), 'Updated just now');
+  assert.equal(freshnessLabel({ syncedAt }, timestamp + 2 * 60000), 'Updated 2 min ago');
+  assert.equal(freshnessLabel({ syncedAt }, timestamp + 4 * 60 * 60 * 1000), 'Updated 4 h ago');
+  assert.equal(freshnessLabel({ syncedAt }, timestamp + 2 * 24 * 60 * 60 * 1000), 'Updated 2 d ago');
+  assert.equal(freshnessLabel({ syncedAt: 'not-a-date' }, timestamp), '');
+});
+
+test('chunks lines by the requested maximum and defaults invalid limits to 20', () => {
+  const lines = Array.from({ length: 21 }, (_, index) => index);
+  assert.deepEqual(chunkLines(lines.slice(0, 5), 2), [[0, 1], [2, 3], [4]]);
+  assert.deepEqual(chunkLines(lines, null).map((chunk) => chunk.length), [20, 1]);
+  assert.deepEqual(chunkLines(lines, 'invalid').map((chunk) => chunk.length), [20, 1]);
+  assert.deepEqual(chunkLines([], 2), []);
+});
+
+test('getShopInfo caches shop data and avoids a second tool call on a cache hit', async () => {
+  let store = { zureqShops: {} };
+  globalThis.chrome = {
+    storage: {
+      local: {
+        get: async (defaults) => ({ ...defaults, ...store }),
+        set: async (values) => { store = { ...store, ...values }; }
+      }
+    }
+  };
+  const info = {
+    checkoutLinkSupported: true,
+    checkoutLinkMaxLines: 20,
+    live: true,
+    website: 'https://shop.example',
+    name: 'Example Shop'
+  };
+  let calls = 0;
+  const callTool = async (name, args) => {
+    calls += 1;
+    assert.equal(name, 'get_shop');
+    assert.deepEqual(args, { shopId: 'bizzle-pl' });
+    return info;
+  };
+
+  const first = await getShopInfo(callTool, 'bizzle-pl');
+  assert.deepEqual(first, { info, cached: false });
+  assert.deepEqual(store.zureqShops['bizzle-pl'].info, info);
+  assert.ok(Number.isFinite(store.zureqShops['bizzle-pl'].at));
+  assert.deepEqual(await getCachedShopInfo('bizzle-pl'), info);
+
+  const second = await getShopInfo(callTool, 'bizzle-pl');
+  assert.deepEqual(second, { info, cached: true });
+  assert.equal(calls, 1);
+});
+
+test('getShopInfo refreshes shop data after the 24-hour cache expires', async () => {
+  const oldInfo = { name: 'Old shop info' };
+  let store = {
+    zureqShops: {
+      'shop-a': { info: oldInfo, at: Date.now() - 24 * 60 * 60 * 1000 }
+    }
+  };
+  globalThis.chrome = {
+    storage: {
+      local: {
+        get: async (defaults) => ({ ...defaults, ...store }),
+        set: async (values) => { store = { ...store, ...values }; }
+      }
+    }
+  };
+  const info = {
+    checkoutLinkSupported: false,
+    checkoutLinkMaxLines: null,
+    live: false,
+    website: 'https://new.example',
+    name: 'New shop info'
+  };
+  let calls = 0;
+  const result = await getShopInfo(async () => {
+    calls += 1;
+    return info;
+  }, 'shop-a');
+  assert.deepEqual(result, { info, cached: false });
+  assert.equal(calls, 1);
+  assert.deepEqual(store.zureqShops['shop-a'].info, info);
+});
+
+test.afterEach(() => {
+  if (originalChrome === undefined) delete globalThis.chrome;
+  else globalThis.chrome = originalChrome;
+  if (originalFetch === undefined) delete globalThis.fetch;
+  else globalThis.fetch = originalFetch;
 });

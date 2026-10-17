@@ -55,6 +55,36 @@ export function normalizeMarkets(data) {
   }).filter(Boolean);
 }
 
+export function stockLabel(details) {
+  if (!details?.inStock) return 'Out of stock';
+  if (details.stockQty == null || Number(details.stockQty) === 99) return 'Available';
+  return `${details.stockQty} in stock`;
+}
+
+export function freshnessLabel(details, now = Date.now()) {
+  if (details?.live) return 'Live from shop';
+  if (!details?.syncedAt) return '';
+  const syncedAt = new Date(details.syncedAt).getTime();
+  const elapsed = Number(now) - syncedAt;
+  if (!Number.isFinite(elapsed)) return '';
+  const age = Math.max(0, elapsed);
+  if (age < 60000) return 'Updated just now';
+  const minutes = Math.floor(age / 60000);
+  if (minutes < 60) return `Updated ${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Updated ${hours} h ago`;
+  return `Updated ${Math.floor(hours / 24)} d ago`;
+}
+
+export function chunkLines(lines, max) {
+  const limit = Number(max);
+  const size = max == null || !Number.isFinite(limit) || limit <= 0 ? 20 : Math.max(1, Math.floor(limit));
+  const values = Array.isArray(lines) ? lines : [];
+  const chunks = [];
+  for (let index = 0; index < values.length; index += size) chunks.push(values.slice(index, index + size));
+  return chunks;
+}
+
 export function mapApiError(error) {
   const code = String(error?.code ?? 'UNKNOWN');
   const [friendlyCode, message] = ERROR_MESSAGES[code] || ['API_ERROR', error?.message || 'Zureq returned an unexpected error.'];
@@ -159,6 +189,42 @@ export async function getCachedMarkets() {
 
 export async function cacheMarkets(data) {
   await chrome.storage.local.set({ zureqMarketsCache: { savedAt: Date.now(), data } });
+}
+
+const SHOP_CACHE_TTL = 24 * 60 * 60 * 1000;
+
+async function getShopCache() {
+  const { zureqShops = {} } = await chrome.storage.local.get({ zureqShops: {} });
+  return zureqShops && typeof zureqShops === 'object' && !Array.isArray(zureqShops) ? zureqShops : {};
+}
+
+function freshShopInfo(entry, now = Date.now()) {
+  return entry?.info && now - Number(entry.at) < SHOP_CACHE_TTL ? entry.info : null;
+}
+
+export async function getCachedShopInfo(shopId) {
+  const cache = await getShopCache();
+  return freshShopInfo(cache[String(shopId)]);
+}
+
+export async function getShopInfo(callTool, shopId) {
+  const id = String(shopId);
+  const cache = await getShopCache();
+  const cachedInfo = freshShopInfo(cache[id]);
+  if (cachedInfo) return { info: cachedInfo, cached: true };
+
+  const data = await callTool('get_shop', { shopId: id });
+  const info = {
+    checkoutLinkSupported: data?.checkoutLinkSupported,
+    checkoutLinkMaxLines: data?.checkoutLinkMaxLines,
+    live: data?.live,
+    website: data?.website,
+    name: data?.name
+  };
+  await chrome.storage.local.set({
+    zureqShops: { ...cache, [id]: { info, at: Date.now() } }
+  });
+  return { info, cached: false };
 }
 
 export { API_URL };
