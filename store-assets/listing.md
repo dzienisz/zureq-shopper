@@ -6,15 +6,16 @@ ZUREQ Shopper — Network Product Search & Price Compare
 
 ## Summary
 
-Search independent shops on the ZUREQ network, compare markets, watch prices, and get ready-to-pay cart links.
+Search 8,900+ independent shops across the US, Poland, and Austria; compare markets, watch prices, and get ready-to-pay cart links.
 
 ## Detailed description
 
 WHAT IT DOES
 
 ZUREQ Shopper gives you one focused shopping workspace for product discovery,
-market comparison, shopping lists, price alerts, and price checking across
-supported shops. It connects to the Zureq MCP API with your own API key.
+market comparison, shopping lists, price alerts, and checkout links across
+8,900+ independent shops in the US, Poland, and Austria. It connects to the
+Zureq MCP API with your own API key.
 
 HOW IT WORKS
 
@@ -28,17 +29,20 @@ HOW IT WORKS
 
 FEATURES
 
-- Product search with country, price, stock, sorting, details, variants, and
-  checkout links.
+- Product search with country, price, stock, result-limit filters, image
+  placeholders, product details, and variants.
 - Live comparison across 2–4 markets with delivery notes and converted prices.
 - List searches up to 10 items with up to five candidates per item and
   per-shop totals.
+- Shop-aware checkout checks support and respects each shop's cart line limit,
+  splitting carts into separate links when needed.
 - Price alerts for watched products and searches, with a configurable
   background check interval.
 - “Find on Zureq network” button on supported shop product pages, including
-  an optional same-currency cheaper-result marker.
-- Context-menu actions, recent searches, usage tracking, and persisted list
-  state.
+  market-matched searches and an optional same-currency cheaper-result marker.
+- A header usage badge shows remaining credits and this session's estimated
+  spend; context-menu actions, recent searches, and list state are also
+  available.
 
 CREDITS
 
@@ -53,7 +57,8 @@ list_shops, list_categories: 1 credit each
 list_markets and get_usage: free
 
 Each List search costs 3 credits per item. Checkout links use 1 credit per
-request and respect each shop's line limit.
+request and respect each shop's line limit. The extension checks shop support
+with `get_shop` before creating links; shop metadata is cached for 24 hours.
 
 PRIVACY
 
@@ -80,8 +85,8 @@ market cache in local storage.
 contextMenus: Adds search and market-comparison actions for text selected by
 the user.
 
-sidePanel: Provides the extension's main Search, Compare, List, Watch, and
-Usage workspace.
+sidePanel: Provides the Search, Compare, List, and Watch workspace; remaining
+credits are shown in the header.
 
 alarms: Runs the user's saved price watches on the interval chosen in Options
 (default daily).
@@ -92,10 +97,9 @@ cheaper.
 https://api.zureq.io/* host permission: Sends the user's requested MCP tool
 calls to the Zureq API.
 
-Allegro.pl, Amazon, Ceneo, eBay, x-kom.pl, and MediaExpert.pl content-script
-matches: Extracts the title and price on supported product pages after the
-user clicks “Find on Zureq network”, or automatically only when the user
-enables Auto-compare in Options.
+Supported shop product-page content scripts: Read the product title and price
+after the user clicks “Find on Zureq network”, or automatically only when the
+user enables Auto-compare in Options.
 
 CATEGORY
 

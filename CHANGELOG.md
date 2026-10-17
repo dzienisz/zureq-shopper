@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0] - 2026-10-17
+
+- Fixed EU searches to use the region filter; improved variant labels, readable
+  API errors, and market names and counts.
+- Added shop-aware checkout support checks, unsupported-shop messaging,
+  shop-specific line limits, and split cart links; product details now show
+  stock and freshness.
+- Removed Assistant, replaced Build with List, removed optimizer and sharing
+  features, and moved Usage into a header badge alongside the four core tabs.
+- Added image placeholders and polished product cards; shop-page searches now
+  use the market matching the supported shop domain.
+
 ## [1.2.2] - 2026-09-19
 
 - Reworded the store summary and description to drop the retailer name list (Chrome Web Store keyword policy).
