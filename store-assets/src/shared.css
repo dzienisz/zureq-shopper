@@ -60,9 +60,7 @@ body {
 .mock-panel .card { margin: 8px 0; }
 .mock-panel .panel { display: block; }
 .mock-panel .panel.hidden { display: none; }
-.mock-panel .build-part { margin: 6px 0; }
-.mock-panel .assistant-messages { min-height: 210px; }
-.mock-panel .assistant-form { position: static; }
+.mock-panel .list-item { margin: 6px 0; }
 .callout {
   position: absolute;
   left: 72px;

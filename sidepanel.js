@@ -3,17 +3,15 @@ import {
   freshnessLabel, getCachedMarkets, getCachedShopInfo, getSearchHistory,
   getShopInfo, locationArgs, normalizeMarkets, stockLabel
 } from './zureq.js';
-import { BUILD_TEMPLATES, partsForBuild } from './builds.js';
-import { languageModelStatus, resolveIntent, summarizeWithModel } from './assistant.js';
+import { groupListPicks, MAX_LIST_ITEMS, migrateListState, parseListInput } from './list.js';
 import { addWatch, clearAlerts, getWatches, removeWatch } from './watchlist.js';
-import { formatSavings, optimizeCart } from './optimizer.js';
-import { buildToMarkdown, decodeBuild, shareLink } from './share.js';
 
 const $ = (id) => document.getElementById(id);
 const state = {
-  products: [], assistantProducts: [], details: new Map(), history: [], markets: [],
+  products: [], details: new Map(), history: [], markets: [],
   selectedMarkets: [], sessionCredits: 0, source: null,
-  build: { text: '', templateId: '', parts: [], running: false, shippingPerShop: 15, optimizeResult: '' }
+  list: { text: '', country: '', parts: [], running: false },
+  listGroups: []
 };
 let panelReady = false;
 let queuedPending = null;
@@ -41,7 +39,7 @@ function activeTab() {
 function showNoKey(missing) {
   $('no-key').classList.toggle('hidden', !missing);
   if (missing) document.querySelectorAll('main > .panel').forEach((panel) => panel.classList.add('hidden'));
-  else ['search', 'compare', 'build', 'watch', 'assistant', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== activeTab()));
+  else ['search', 'compare', 'list', 'watch', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== activeTab()));
 }
 function handleError(error) {
   if (error?.code === 'NO_KEY') {
@@ -198,8 +196,7 @@ async function showDetails(card) {
   const key = productKey(product);
   if (state.details.has(key)) {
     state.details.delete(key);
-    if (card.dataset.assistant) renderAssistantDetails(card, null);
-    else renderProducts();
+    renderProducts();
     return;
   }
   try {
@@ -209,8 +206,7 @@ async function showDetails(card) {
     try { cachedShop = await getCachedShopInfo(product.shopId); } catch {}
     const productDetails = { ...details, shopWebsite: cachedShop?.website };
     state.details.set(key, productDetails);
-    if (card.dataset.assistant) renderAssistantDetails(card, productDetails);
-    else renderProducts();
+    renderProducts();
   } catch (error) { handleError(error); }
 }
 async function checkout(card) {
@@ -245,178 +241,118 @@ async function checkout(card) {
   } catch (error) { handleError(error); }
 }
 
-async function saveBuild() {
-  await chrome.storage.local.set({ zureqBuild: state.build });
+async function saveList() {
+  const { text, country, parts } = state.list;
+  await chrome.storage.local.set({ zureqBuild: { text, country, parts } });
 }
 
-function renderBuildPresets() {
-  $('build-presets').innerHTML = BUILD_TEMPLATES.map((template) => `<button class="chip build-preset" data-template="${esc(template.id)}">${esc(template.label)}</button>`).join('');
+function updateListEstimate() {
+  const count = parseListInput($('list-input').value).length;
+  const cost = count * TOOL_COSTS.search_products;
+  $('list-estimate').textContent = count > MAX_LIST_ITEMS
+    ? `${count} items (max ${MAX_LIST_ITEMS}) · ~${cost} credits`
+    : `${count} item${count === 1 ? '' : 's'} · ~${cost} credits`;
+  $('search-list').disabled = state.list.running || count === 0 || count > MAX_LIST_ITEMS;
+  if (count > MAX_LIST_ITEMS) $('list-run-status').textContent = `Enter no more than ${MAX_LIST_ITEMS} items.`;
+  else if (!state.list.running && !state.list.parts.length) $('list-run-status').textContent = 'Enter up to 10 items.';
 }
 
-function syncBuildInputs() {
-  $('build-input').value = state.build.text || '';
-  $('shipping-per-shop').value = String(state.build.shippingPerShop ?? 15);
-  $('optimize-result').textContent = state.build.optimizeResult || '';
+async function handleListInput() {
+  const text = $('list-input').value;
+  const queries = parseListInput(text);
+  if (JSON.stringify(queries) !== JSON.stringify(state.list.parts.map((part) => part.query))) {
+    state.list.parts = [];
+    state.listGroups = [];
+    renderListParts();
+    renderListSummary();
+  }
+  state.list.text = text;
+  updateListEstimate();
+  await saveList();
 }
 
-function renderBuildParts() {
-  const parts = state.build.parts;
-  $('build-parts').innerHTML = parts.length ? parts.map((part, index) => `<div class="build-part" data-part="${index}">
-    <div class="build-part-head"><input type="checkbox" class="part-include" ${part.include ? 'checked' : ''}><input type="text" class="part-query" value="${esc(part.query)}"><span class="optional">${part.optional ? 'optional' : ''}</span></div>
-    <div class="build-candidates">${part.candidates?.length ? part.candidates.slice(0, 5).map((candidate, candidateIndex) => `<label class="candidate-row"><input type="radio" name="build-pick-${index}" class="part-pick" value="${candidateIndex}" ${part.pick?.sku === candidate.sku && part.pick?.shopId === candidate.shopId ? 'checked' : ''}><span class="candidate-name">${esc(decodeEntities(candidate.name))} · ${esc(candidate.shopName || candidate.shopId || '')}</span><span class="candidate-price">${esc(candidate.price)} ${esc(candidate.currency || '')}</span></label>`).join('') : `<span class="muted">${part.searched ? `No results for “${esc(part.query)}”.` : 'Not searched yet.'}</span>`}</div>
-  </div>`).join('') : '<p class="hint">Choose a preset or describe a comma-separated list of parts.</p>';
-  $('build-actions').classList.toggle('hidden', !parts.length);
-  $('optimize-build').disabled = !parts.some((part) => part.include && part.candidates?.length);
-  const count = parts.filter((part) => part.include).length;
-  $('build-estimate').textContent = count ? `~${count * TOOL_COSTS.search_products} credits` : 'No parts included.';
+function renderListParts() {
+  const parts = state.list.parts;
+  $('list-parts').innerHTML = parts.length ? parts.map((part, index) => `<div class="list-item" data-item="${index}">
+    <h3>${esc(part.name)}</h3>
+    <div class="list-candidates">${part.candidates?.length ? part.candidates.slice(0, 5).map((candidate, candidateIndex) => `<label class="candidate-row"><input type="radio" name="list-pick-${index}" class="part-pick" value="${candidateIndex}" ${part.pick?.sku === candidate.sku && part.pick?.shopId === candidate.shopId ? 'checked' : ''}><span class="candidate-name">${esc(decodeEntities(candidate.name))} · ${esc(candidate.shopName || candidate.shopId || '')}</span><span class="candidate-price">${esc(candidate.price)} ${esc(candidate.currency || '')}</span></label>`).join('') : `<span class="muted">${part.error ? esc(part.error) : part.searched ? `No results for “${esc(part.query)}”.` : 'Not searched yet.'}</span>`}</div>
+  </div>`).join('') : '';
 }
 
-function currentBuildTotals() {
-  const picks = state.build.parts
-    .filter((part) => part.include && part.pick && Number.isFinite(Number(part.pick.price)));
-  const counts = new Map();
-  let currency = null;
-  picks.forEach(({ pick }) => {
-    const code = String(pick.currency || '').toUpperCase();
-    if (!code) return;
-    const count = (counts.get(code) || 0) + 1;
-    counts.set(code, count);
-    if (!currency || count > (counts.get(currency) || 0)) currency = code;
-  });
-  const dominant = picks.filter(({ pick }) => String(pick.currency || '').toUpperCase() === currency);
-  const itemsTotal = dominant.reduce((sum, { pick }) => sum + Number(pick.price), 0);
-  const shopIds = new Set(picks.map(({ pick }) => String(pick.shopId ?? pick.shopName ?? '')));
-  const shipping = Number(state.build.shippingPerShop) * shopIds.size;
-  const otherCurrencies = new Map();
-  picks.filter(({ pick }) => String(pick.currency || '').toUpperCase() !== currency).forEach(({ pick }) => {
-    const code = String(pick.currency || '').toUpperCase() || '—';
-    otherCurrencies.set(code, (otherCurrencies.get(code) || 0) + Number(pick.price));
-  });
-  return {
-    currency,
-    itemsTotal: Number(itemsTotal.toFixed(2)),
-    shopCount: shopIds.size,
-    shipping: Number(shipping.toFixed(2)),
-    total: Number((itemsTotal + shipping).toFixed(2)),
-    otherCurrencies
-  };
+function renderListSummary() {
+  const groups = groupListPicks(state.list.parts);
+  const content = groups.length ? groups.map((group, index) => {
+    const totals = group.totals.map(({ currency, amount }) => `${amount.toFixed(2)} ${esc(currency)}`).join(' · ') || 'Total unavailable';
+    return `<div class="list-summary-group" data-group="${index}"><h3>${esc(group.shopName)}</h3><div class="summary-total">${totals}</div><ul>${group.picks.map(({ part, candidate }) => `<li>${esc(part.name)} — ${esc(decodeEntities(candidate.name))}</li>`).join('')}</ul><button class="secondary list-checkout" data-group="${index}">Checkout link</button><div class="list-link"></div></div>`;
+  }).join('') : state.list.parts.length ? '<p class="hint">Pick one result per item to see shop totals.</p>' : '';
+  $('list-summary').innerHTML = state.list.parts.length ? `<div class="list-summary">${content}</div>` : '';
+  state.listGroups = groups;
 }
 
-function renderBuildSummary() {
-  const groups = new Map();
-  state.build.parts.filter((part) => part.include && part.pick).forEach((part) => {
-    const key = part.pick.shopId || part.pick.shopName;
-    if (!groups.has(key)) groups.set(key, { shopId: part.pick.shopId, shopName: part.pick.shopName || part.pick.shopId, picks: [] });
-    groups.get(key).picks.push({ part, candidate: part.pick });
-  });
-  const totals = currentBuildTotals();
-  const totalsLine = totals.currency
-    ? `${totals.shopCount} shops · items ${totals.itemsTotal.toFixed(2)} ${esc(totals.currency)} · est. shipping ${totals.shipping.toFixed(2)} ${esc(totals.currency)} · total ${totals.total.toFixed(2)} ${esc(totals.currency)}${[...totals.otherCurrencies.entries()].map(([currency, total]) => ` · + ${total.toFixed(2)} ${esc(currency)} (not totalled)`).join('')}`
-    : '';
-  const selectedContent = groups.size ? `${totalsLine ? `<p class="build-totals">${totalsLine}</p>` : ''}<h3>Selected parts</h3>${[...groups.values()].map((group, index) => {
-    const totals = {};
-    group.picks.forEach(({ candidate }) => { const currency = candidate.currency || '—'; totals[currency] = (totals[currency] || 0) + (Number(candidate.price) || 0); });
-    return `<div class="summary-group" data-group="${index}"><h3>${esc(group.shopName)}</h3><div class="summary-total">${Object.entries(totals).map(([currency, total]) => `${total.toFixed(2)} ${esc(currency)}`).join(' · ')}</div><ul>${group.picks.map(({ part, candidate }) => `<li>${esc(part.name)} — ${esc(decodeEntities(candidate.name))}</li>`).join('')}</ul><button class="secondary build-checkout" data-group="${index}">Checkout link</button><div class="build-link"></div></div>`;
-  }).join('')}` : '';
-  const shareActions = state.build.parts.length ? '<div id="share-actions" class="share-actions"><button class="secondary" data-action="copy-markdown">Copy Markdown</button><button class="secondary" data-action="copy-share-link">Copy share link</button></div>' : '';
-  $('build-summary').innerHTML = state.build.parts.length ? `<div class="build-summary">${selectedContent}${shareActions}</div>` : '';
-  state.build.groups = [...groups.values()];
-}
-
-async function planBuild(text = $('build-input').value) {
-  const planned = partsForBuild(text);
-  if (!planned) {
-    showNotice('Describe a build or enter parts separated by commas or new lines.', true);
+async function searchListItems() {
+  const text = $('list-input').value.trim();
+  const queries = parseListInput(text);
+  if (!queries.length) {
+    showNotice('Enter at least one item.', true);
     return;
   }
-  state.build = {
-    text: String(text).trim(),
-    templateId: planned.template?.id || '',
-    parts: planned.parts.map((part, index) => ({ ...part, id: index, include: !part.optional, candidates: [], pick: null })),
-    running: false,
-    shippingPerShop: 15,
-    optimizeResult: ''
-  };
-  $('build-input').value = state.build.text;
-  $('shipping-per-shop').value = '15';
-  $('optimize-result').textContent = '';
-  await saveBuild();
-  renderBuildParts();
-  renderBuildSummary();
-}
-
-async function importBuild(value, replace = true) {
-  try {
-    const build = decodeBuild(value);
-    if (replace && state.build.parts.length && !confirm('Replace your current build?')) return false;
-    state.build = build;
-    syncBuildInputs();
-    await saveBuild();
-    renderBuildParts();
-    renderBuildSummary();
-    switchTab('build');
-    showNotice('Build imported.');
-    return true;
-  } catch (error) {
-    showNotice(error.message, true);
-    return false;
+  if (queries.length > MAX_LIST_ITEMS) {
+    showNotice(`Search up to ${MAX_LIST_ITEMS} items at a time.`, true);
+    return;
   }
-}
-
-async function optimizeBuild() {
-  const shippingPerShop = Number($('shipping-per-shop').value);
-  state.build.shippingPerShop = Number.isFinite(shippingPerShop) && shippingPerShop >= 0 ? shippingPerShop : 0;
-  const result = optimizeCart(state.build.parts, { shippingPerShop: state.build.shippingPerShop });
-  const assignments = new Map(result.assignments.map((assignment) => [String(assignment.partId), assignment.candidate]));
-  state.build.parts.forEach((part) => {
-    if (assignments.has(String(part.id))) part.pick = assignments.get(String(part.id));
-  });
-  state.build.optimizeResult = formatSavings(result) || 'Already optimal.';
-  const skipped = result.skipped.map((part) => part.name).join(', ');
-  if (skipped) state.build.optimizeResult += ` Skipped (no comparable offer): ${skipped}`;
-  await saveBuild();
-  renderBuildParts();
-  renderBuildSummary();
-  $('optimize-result').textContent = state.build.optimizeResult;
-}
-
-async function searchBuildParts() {
-  const included = state.build.parts.filter((part) => part.include);
-  if (!included.length || state.build.running) return;
-  if (!confirm(`Search ${included.length} part${included.length === 1 ? '' : 's'}? Estimated cost: ~${included.length * TOOL_COSTS.search_products} credits.`)) return;
-  state.build.running = true;
-  state.build.optimizeResult = '';
-  $('optimize-result').textContent = '';
-  $('search-build').disabled = true;
-  for (let index = 0; index < state.build.parts.length; index += 1) {
-    const part = state.build.parts[index];
-    if (!part.include) continue;
-    $('build-run-status').textContent = `Searching ${index + 1} of ${state.build.parts.length}: ${part.query}`;
+  if (state.list.running) return;
+  clearNotice();
+  state.list = {
+    text,
+    country: $('list-country').value,
+    parts: queries.map((query, index) => ({ id: index, name: query, query, candidates: [], pick: null, searched: false })),
+    running: true
+  };
+  $('list-input').disabled = true;
+  $('list-country').disabled = true;
+  $('list-run-status').textContent = 'Preparing searches…';
+  updateListEstimate();
+  await saveList();
+  renderListParts();
+  renderListSummary();
+  for (let index = 0; index < state.list.parts.length; index += 1) {
+    const part = state.list.parts[index];
+    $('list-run-status').textContent = `Searching ${index + 1} of ${state.list.parts.length}: ${part.query}`;
     try {
-      const data = await tool('search_products', { query: part.query, ...locationArgs($('build-country').value), inStockOnly: true, limit: 5 });
-      part.candidates = data?.products || [];
+      const data = await tool('search_products', {
+        query: part.query,
+        ...locationArgs(state.list.country),
+        inStockOnly: true,
+        limit: 5
+      });
+      part.candidates = (data?.products || data?.items || []).slice(0, 5);
       part.searched = true;
-      part.pick = null;
+      part.error = '';
     } catch (error) {
+      part.searched = true;
+      part.error = error instanceof ZureqError ? error.message : 'Search failed.';
       handleError(error);
     }
-    await saveBuild();
-    renderBuildParts();
+    await saveList();
+    renderListParts();
+    renderListSummary();
   }
-  state.build.running = false;
-  $('search-build').disabled = false;
-  $('build-run-status').textContent = 'Search complete. Pick one result per included part.';
-  renderBuildSummary();
-  await saveBuild();
+  state.list.running = false;
+  $('list-input').disabled = false;
+  $('list-country').disabled = false;
+  $('list-run-status').textContent = 'Search complete. Pick one result per item.';
+  updateListEstimate();
+  await saveList();
 }
 
-async function buildCheckout(groupIndex) {
-  const group = state.build.groups?.[groupIndex];
+async function listCheckout(groupIndex) {
+  const group = state.listGroups[groupIndex];
   if (!group) return;
-  const button = document.querySelector(`.summary-group[data-group="${groupIndex}"] .build-checkout`);
-  const target = button?.parentElement.querySelector('.build-link');
+  const button = document.querySelector(`.list-summary-group[data-group="${groupIndex}"] .list-checkout`);
+  const target = button?.parentElement.querySelector('.list-link');
   if (button) button.disabled = true;
   try {
+    if (!group.shopId) throw new ZureqError('API_ERROR', 'Shop information is unavailable for this item.');
     const { info } = await getShopInfo(tool, group.shopId);
     if (info.checkoutLinkSupported === false) {
       if (target) target.textContent = "This shop doesn't support checkout links.";
@@ -469,11 +405,6 @@ async function buildCheckout(groupIndex) {
   }
 }
 
-function renderAssistantProducts(products) {
-  state.assistantProducts = products;
-  return products.slice(0, 5).map((product) => `<article class="assistant-product" data-assistant="true" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}"><strong>${esc(decodeEntities(product.name))}</strong><div class="meta">${esc(product.shopName || product.shopId || '')} · ${esc(product.price)} ${esc(product.currency || '')}</div><div class="card-actions"><button data-action="details">Details</button><button data-action="checkout">Checkout</button><button data-action="watch">Watch</button></div><div class="details-slot"></div></article>`).join('');
-}
-
 function relativeTime(timestamp) {
   if (!timestamp) return 'Not checked yet';
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
@@ -498,74 +429,10 @@ async function renderWatches() {
   }).join('') : '<p class="hint">Nothing watched yet. Use “Watch” on a product or “Watch this search” under results.</p>';
 }
 
-function renderAssistantComparison(data) {
-  const markets = normalizeComparison(data);
-  return markets.length ? markets.map((market) => {
-    const offers = market.offers || market.candidates || [];
-    return `<div class="market-result"><h3>${esc(market.label || market.key || market.market || 'Market')}</h3><p class="hint">${esc(market.delivery?.note || '')}</p><ul>${offers.slice(0, 3).map((offer) => `<li>${esc(decodeEntities(offer.name))} — ${esc(offer.approxPrice ?? offer.price)} ${esc(offer.approxCurrency || offer.currency || data.currency || '')}</li>`).join('')}</ul></div>`;
-  }).join('') : '<p class="hint">No comparison rows returned.</p>';
-}
-
 function productFromCard(card) {
-  const products = card.dataset.assistant ? state.assistantProducts : state.products;
-  return products.find((item) => String(item.shopId) === card.dataset.shopId && String(item.sku) === card.dataset.sku);
+  return state.products.find((item) => String(item.shopId) === card.dataset.shopId && String(item.sku) === card.dataset.sku);
 }
 
-function renderAssistantDetails(card, details) {
-  const slot = card.querySelector('.details-slot');
-  if (!slot) return;
-  if (!details) {
-    slot.innerHTML = '';
-    return;
-  }
-  slot.innerHTML = detailsHtml(details);
-}
-
-function appendAssistantMessage(html, cost = 0, user = false) {
-  const item = document.createElement('div');
-  item.className = `message${user ? ' user' : ''}`;
-  item.innerHTML = `<div class="bubble">${html}</div>${!user ? `<span class="credit-note">${cost} credits</span>` : ''}`;
-  $('assistant-messages').append(item);
-  $('assistant-messages').scrollTop = $('assistant-messages').scrollHeight;
-}
-
-async function assistantSend(text) {
-  const value = String(text || '').trim();
-  if (!value) return;
-  appendAssistantMessage(esc(value), 0, true);
-  $('assistant-input').value = '';
-  const intent = await resolveIntent(value, { markets: state.markets });
-  let cost = 0;
-  try {
-    if (intent.type === 'search') {
-      const data = await tool('search_products', { query: intent.query, ...locationArgs(intent.country), maxPrice: intent.maxPrice, inStockOnly: true, limit: 5 });
-      cost = TOOL_COSTS.search_products;
-      const products = data?.products || [];
-      const summary = await summarizeWithModel(value, data) || (products.length ? `I found ${products.length} relevant result${products.length === 1 ? '' : 's'}.` : 'I did not find matching products.');
-      appendAssistantMessage(`${esc(summary)}<div class="assistant-products">${renderAssistantProducts(products)}</div>`, cost);
-    } else if (intent.type === 'compare') {
-      const data = await tool('compare_markets', { query: intent.query, markets: intent.markets, currency: intent.currency || 'PLN' });
-      cost = TOOL_COSTS.compare_markets;
-      appendAssistantMessage(`Here is the live market comparison for <strong>${esc(intent.query)}</strong>:<div class="assistant-products">${renderAssistantComparison(data)}</div>`, cost);
-    } else if (intent.type === 'build') {
-      switchTab('build');
-      $('build-input').value = intent.text;
-      await planBuild(intent.text);
-      appendAssistantMessage('I opened the Build tab and planned the parts list. Include the parts you want, then search them together.', 0);
-    } else if (intent.type === 'usage') {
-      const data = await tool('get_usage', {});
-      appendAssistantMessage(`You have <strong>${esc(data?.remaining ?? 'unknown')}</strong> credits remaining (${esc(data?.used ?? 0)} used).`, 0);
-    } else if (intent.type === 'markets') {
-      appendAssistantMessage(`Available markets include ${state.markets.map((market) => esc(market.label)).join(', ') || 'the EU and World options'}.`, 0);
-    } else {
-      appendAssistantMessage('Try “find a mechanical keyboard under 200 PLN”, “compare DJI Mini 4 in PL and DE”, or “parts for an FPV drone”.', 0);
-    }
-  } catch (error) {
-    cost = error?.code === 'RATE_LIMIT' ? 0 : cost;
-    handleError(error);
-    appendAssistantMessage(esc(error instanceof ZureqError ? error.message : 'I could not complete that request.'), cost);
-  }
-}
 function normalizeComparison(data) {
   return data?.markets || data?.results || data?.comparisons || (Array.isArray(data) ? data : []);
 }
@@ -611,7 +478,7 @@ async function loadUsage() {
 }
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach((button) => button.classList.toggle('active', button.dataset.tab === tab));
-  ['search', 'compare', 'build', 'watch', 'assistant', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== tab));
+  ['search', 'compare', 'list', 'watch', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== tab));
   if (tab === 'usage') loadUsage();
   if (tab === 'watch') {
     clearAlerts().then(() => chrome.runtime.sendMessage({ type: 'zureq-clear-badge' })).catch(() => {});
@@ -647,75 +514,41 @@ $('search-results').addEventListener('click', (event) => {
   if (button.dataset.action === 'open-url') chrome.tabs.create({ url: button.dataset.url });
   if (button.dataset.action === 'copy-url') navigator.clipboard.writeText(button.dataset.url).then(() => showNotice('Checkout link copied.'));
 });
-$('assistant-messages').addEventListener('click', (event) => {
-  const button = event.target.closest('[data-action]');
-  if (!button) return;
-  const card = button.closest('.assistant-product');
-  if (!card) return;
-  if (button.dataset.action === 'description-toggle') {
-    toggleDescription(button);
-    return;
-  }
-  if (button.dataset.action === 'watch') {
-    watchProduct(productFromCard(card));
-    return;
-  }
-  if (button.dataset.action === 'details') showDetails(card);
-  if (button.dataset.action === 'checkout') checkout(card);
-  if (button.dataset.action === 'open-url') chrome.tabs.create({ url: button.dataset.url });
-  if (button.dataset.action === 'copy-url') navigator.clipboard.writeText(button.dataset.url).then(() => showNotice('Checkout link copied.'));
+$('list-input').addEventListener('input', handleListInput);
+$('list-country').addEventListener('change', async () => {
+  state.list.country = $('list-country').value;
+  state.list.parts = [];
+  state.listGroups = [];
+  $('list-run-status').textContent = 'Country changed. Search again to refresh your items.';
+  renderListParts();
+  renderListSummary();
+  await saveList();
 });
-$('build-presets').addEventListener('click', (event) => {
-  const button = event.target.closest('.build-preset');
-  if (!button) return;
-  const template = BUILD_TEMPLATES.find((item) => item.id === button.dataset.template);
-  if (template) { $('build-input').value = template.label; planBuild(template.label); }
-});
-$('plan-build').addEventListener('click', () => planBuild());
-$('search-build').addEventListener('click', searchBuildParts);
-$('clear-build').addEventListener('click', async () => {
-  state.build = { text: '', templateId: '', parts: [], running: false, shippingPerShop: 15, optimizeResult: '' };
-  $('build-input').value = '';
-  $('shipping-per-shop').value = '15';
-  $('optimize-result').textContent = '';
+$('search-list').addEventListener('click', searchListItems);
+$('clear-list').addEventListener('click', async () => {
+  state.list = { text: '', country: $('list-country').value, parts: [], running: false };
+  state.listGroups = [];
+  $('list-input').value = '';
+  $('list-run-status').textContent = 'Enter up to 10 items.';
+  $('list-input').disabled = false;
+  $('list-country').disabled = false;
   await chrome.storage.local.remove('zureqBuild');
-  renderBuildParts();
-  renderBuildSummary();
+  updateListEstimate();
+  renderListParts();
+  renderListSummary();
 });
-$('import-build').addEventListener('click', () => importBuild($('import-code').value));
-$('shipping-per-shop').addEventListener('change', async () => {
-  const value = Number($('shipping-per-shop').value);
-  state.build.shippingPerShop = Number.isFinite(value) && value >= 0 ? value : 0;
-  await saveBuild();
-  renderBuildSummary();
-});
-$('optimize-build').addEventListener('click', optimizeBuild);
-$('build-parts').addEventListener('change', async (event) => {
-  const row = event.target.closest('.build-part');
+$('list-parts').addEventListener('change', async (event) => {
+  const row = event.target.closest('.list-item');
   if (!row) return;
-  const part = state.build.parts[Number(row.dataset.part)];
+  const part = state.list.parts[Number(row.dataset.item)];
   if (!part) return;
-  if (event.target.classList.contains('part-include')) part.include = event.target.checked;
-  if (event.target.classList.contains('part-query')) { part.query = event.target.value.trim(); part.name = part.query || part.name; }
   if (event.target.classList.contains('part-pick')) part.pick = part.candidates[Number(event.target.value)] || null;
-  await saveBuild();
-  renderBuildParts();
-  renderBuildSummary();
+  await saveList();
+  renderListSummary();
 });
-$('build-summary').addEventListener('click', (event) => {
-  const button = event.target.closest('.build-checkout');
-  if (button) buildCheckout(Number(button.dataset.group));
-  const action = event.target.closest('[data-action]')?.dataset.action;
-  if (action === 'copy-markdown') {
-    navigator.clipboard.writeText(buildToMarkdown(state.build, { shippingPerShop: state.build.shippingPerShop }))
-      .then(() => showNotice('Markdown copied.'))
-      .catch(() => showNotice('Could not copy Markdown.', true));
-  }
-  if (action === 'copy-share-link') {
-    navigator.clipboard.writeText(shareLink(state.build))
-      .then(() => showNotice('Link copied — recipients paste it into Build → Import a shared build.'))
-      .catch(() => showNotice('Could not copy the share link.', true));
-  }
+$('list-summary').addEventListener('click', (event) => {
+  const button = event.target.closest('.list-checkout');
+  if (button) listCheckout(Number(button.dataset.group));
 });
 $('watch-list').addEventListener('click', async (event) => {
   const button = event.target.closest('[data-action]');
@@ -745,12 +578,6 @@ $('check-watches').addEventListener('click', async () => {
     $('check-watches').disabled = false;
   }
 });
-$('assistant-form').addEventListener('submit', (event) => { event.preventDefault(); assistantSend($('assistant-input').value); });
-$('assistant-suggestions').addEventListener('click', (event) => {
-  const button = event.target.closest('.suggestion');
-  if (button) assistantSend(button.textContent);
-});
-
 async function applyPending(pending) {
   if (!pending?.query) return;
   const signature = `${pending.createdAt || ''}:${pending.mode || 'search'}:${pending.query}`;
@@ -796,29 +623,28 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 async function init() {
   state.history = await getSearchHistory();
   renderHistory();
-  renderBuildPresets();
-  $('ai-status').textContent = `on-device AI: ${await languageModelStatus()}`;
   try {
     const settings = await chrome.storage.sync.get({ defaultCountry: '', defaultCurrency: 'PLN' });
     $('currency').value = settings.defaultCurrency || 'PLN';
     await loadMarkets();
-    $('build-country').innerHTML = $('country').innerHTML;
+    $('list-country').innerHTML = $('country').innerHTML;
     if (settings.defaultCountry) $('country').value = settings.defaultCountry;
+    $('list-country').value = settings.defaultCountry || '';
+    state.list.country = $('list-country').value;
     await renderWatches();
     let pending;
     try { ({ zureqPending: pending } = await chrome.storage.session.get({ zureqPending: null })); } catch {}
     if (!pending) ({ zureqPending: pending } = await chrome.storage.local.get({ zureqPending: null }));
-    const savedBuild = await chrome.storage.local.get({ zureqBuild: null });
-    if (savedBuild.zureqBuild?.parts) {
-      state.build = { shippingPerShop: 15, optimizeResult: '', ...savedBuild.zureqBuild, running: false };
-      syncBuildInputs();
-      renderBuildParts();
-      renderBuildSummary();
+    const savedList = await chrome.storage.local.get({ zureqBuild: null });
+    if (savedList.zureqBuild) {
+      state.list = { ...state.list, ...migrateListState(savedList.zureqBuild, settings.defaultCountry) };
+      $('list-input').value = state.list.text;
+      $('list-country').value = state.list.country;
+      await saveList();
     }
-    if (location.hash.startsWith('#build=')) {
-      await importBuild(location.hash, true);
-      history.replaceState(null, '', location.pathname);
-    }
+    updateListEstimate();
+    renderListParts();
+    renderListSummary();
     await applyPending(pending || queuedPending);
     panelReady = true;
     if (queuedPending && queuedPending !== pending) await applyPending(queuedPending);
