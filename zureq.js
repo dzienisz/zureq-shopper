@@ -48,6 +48,14 @@ export function locationArgs(code) {
   return location === 'EU' ? { region: 'EU' } : { country: location };
 }
 
+export function parseMaxPrice(raw) {
+  if (raw == null || String(raw).trim() === '') return { value: undefined };
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0
+    ? { value }
+    : { error: 'Max price must be greater than 0.' };
+}
+
 export function normalizeMarkets(data) {
   const list = data?.markets || data?.countries || data?.items || (Array.isArray(data) ? data : []);
   return list.map((item) => {
@@ -141,7 +149,7 @@ async function getApiKey() {
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function callTool(name, args = {}, options = {}) {
-  const key = await getApiKey();
+  const key = options.apiKey === undefined ? await getApiKey() : String(options.apiKey || '').trim();
   if (!key) throw new ZureqError('NO_KEY', 'Add your Zureq API key in Options to get started.');
   const maxAttempts = options.retryRateLimit === false ? 1 : 2;
   let attempt = 0;

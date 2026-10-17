@@ -2,7 +2,7 @@ import {
   TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool, chunkLines,
   formatCredits,
   freshnessLabel, getCachedMarkets, getCachedShopInfo, getSearchHistory,
-  getShopInfo, isLowCredits, locationArgs, normalizeMarkets, stockLabel
+  getShopInfo, isLowCredits, locationArgs, normalizeMarkets, parseMaxPrice, stockLabel
 } from './zureq.js';
 import { groupListPicks, MAX_LIST_ITEMS, migrateListState, parseListInput } from './list.js';
 import { setBusy, skeletonHtml } from './loading.js';
@@ -10,7 +10,7 @@ import { addWatch, clearAlerts, getWatches, removeWatch } from './watchlist.js';
 
 const $ = (id) => document.getElementById(id);
 const state = {
-  products: [], details: new Map(), history: [], markets: [],
+  products: [], details: new Map(), history: [], markets: [], lastSearch: null,
   selectedMarkets: [], sessionCredits: 0, source: null, searching: false, comparing: false,
   list: { text: '', country: '', parts: [], running: false },
   listGroups: [],
@@ -196,10 +196,11 @@ async function watchProduct(product, button) {
   const name = decodeEntities(product.name);
   setBusy(button, true, 'Saving…');
   try {
+    const lastSearch = state.lastSearch;
     await addWatch({
       type: 'product',
-      query: $('query').value.trim() || name,
-      country: $('country').value,
+      query: lastSearch?.query || name,
+      country: lastSearch?.country || '',
       shopId: product.shopId,
       sku: product.sku,
       name,
@@ -213,20 +214,20 @@ async function watchProduct(product, button) {
   }
 }
 async function watchSearch() {
-  const query = $('query').value.trim();
+  const lastSearch = state.lastSearch;
   const baseline = watchSearchBaseline(state.products);
-  if (!query || !baseline) {
+  if (!lastSearch || !baseline) {
     showNotice('Search results need comparable prices before they can be watched.', true);
     return;
   }
   await addWatch({
     type: 'query',
-    query,
-    country: $('country').value,
-    name: query,
+    query: lastSearch.query,
+    country: lastSearch.country,
+    name: lastSearch.query,
     baseline
   });
-  showNotice(`Watching “${query}”.`);
+  showNotice(`Watching “${lastSearch.query}”.`);
 }
 function detailsDescriptionHtml(details) {
   return details.description
@@ -282,7 +283,13 @@ async function search(event) {
   clearNotice();
   const query = $('query').value.trim();
   if (!query) return;
-  const args = { query, ...locationArgs($('country').value), maxPrice: $('max-price').value ? Number($('max-price').value) : undefined, inStockOnly: $('in-stock').checked, limit: Math.min(50, Number($('limit').value) || 10) };
+  const country = $('country').value;
+  const maxPrice = parseMaxPrice($('max-price').value);
+  if (maxPrice.error) {
+    showNotice(maxPrice.error, true);
+    return;
+  }
+  const args = { query, ...locationArgs(country), maxPrice: maxPrice.value, inStockOnly: $('in-stock').checked, limit: Math.min(50, Number($('limit').value) || 10) };
   Object.keys(args).forEach((key) => args[key] === undefined && delete args[key]);
   const button = event?.submitter || $('search-form').querySelector('[type="submit"]');
   const results = $('search-results');
@@ -294,6 +301,7 @@ async function search(event) {
   try {
     const data = await tool('search_products', args);
     state.products = data?.products || data?.items || [];
+    state.lastSearch = { query: args.query, country: args.country || args.region || '' };
     state.details.clear();
     state.history = await addSearchHistory(query);
     renderHistory();
@@ -352,7 +360,14 @@ async function checkout(card, button) {
   setBusy(button, true, 'Creating…');
   try {
     const { info } = await getShopInfo(tool, product.shopId);
-    state.details.set(productKey(product), { ...details, shopWebsite: info.website });
+    const updatedDetails = { ...details, shopWebsite: info.website || details.shopWebsite };
+    state.details.set(productKey(product), updatedDetails);
+    const hadWebsite = /^https?:\/\//i.test(String(details.shopWebsite || ''));
+    const hasWebsite = /^https?:\/\//i.test(String(updatedDetails.shopWebsite || ''));
+    if (!hadWebsite && hasWebsite) {
+      const meta = card.querySelector('.details-meta');
+      if (meta) meta.outerHTML = detailsMetaHtml(updatedDetails);
+    }
     if (info.checkoutLinkSupported === false) {
       showNotice("This shop doesn't support checkout links — open the product on the shop instead.");
       return;

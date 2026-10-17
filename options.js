@@ -32,9 +32,9 @@ $('settings-form').addEventListener('submit', async (event) => {
   status('Options saved.');
 });
 $('test-key').addEventListener('click', async () => {
-  if ($('api-key').value.trim()) await chrome.storage.sync.set({ zureqApiKey: $('api-key').value.trim() });
   try {
-    const usage = await callTool('get_usage', {});
+    const apiKey = $('api-key').value.trim();
+    const usage = await callTool('get_usage', {}, apiKey ? { apiKey } : {});
     status(`Connection successful. ${usage?.remaining ?? 'Your'} credits remaining.`);
   } catch (error) {
     status(error instanceof ZureqError ? error.message : 'Could not test the connection.', true);
