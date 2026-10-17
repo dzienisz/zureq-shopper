@@ -477,7 +477,6 @@ async function loadListPickDetails(part, pick) {
   } finally {
     if (listDetailsRequests.get(key) === request) listDetailsRequests.delete(key);
     renderListParts();
-    renderListSummary();
   }
 }
 
@@ -559,15 +558,27 @@ async function searchListItems() {
 }
 
 async function listCheckout(groupIndex) {
-  const group = state.listGroups[groupIndex];
+  let group = state.listGroups[groupIndex];
   if (!group) return;
-  const button = document.querySelector(`.list-summary-group[data-group="${groupIndex}"] .list-checkout`);
-  const target = button?.parentElement.querySelector('.list-link');
+  const buttonSelector = `.list-summary-group[data-group="${groupIndex}"] .list-checkout`;
+  let button = document.querySelector(buttonSelector);
+  let target = button?.parentElement.querySelector('.list-link');
+  const missingDetails = group.picks.filter(({ candidate }) => !state.list.productDetails?.[productKey(candidate)]);
+  if (missingDetails.length) {
+    if (button) button.disabled = true;
+    if (target) target.textContent = 'Loading product details…';
+    await Promise.all(missingDetails.map(({ part, candidate }) => loadListPickDetails(part, candidate)));
+    group = state.listGroups[groupIndex];
+    if (!group) return;
+    button = document.querySelector(buttonSelector);
+    target = button?.parentElement.querySelector('.list-link');
+  }
   const unresolved = group.picks.filter(({ candidate }) => {
     const details = state.list.productDetails?.[productKey(candidate)];
     return (details?.requiresVariant || details?.variants?.length) && !candidate.variantSku;
   });
   if (unresolved.length) {
+    if (button) button.disabled = false;
     if (target) target.textContent = `Choose a variant for: ${unresolved.map(({ part }) => part.name).join(', ')}`;
     return;
   }
@@ -836,7 +847,7 @@ $('list-parts').addEventListener('change', async (event) => {
   if (event.target.classList.contains('list-variant')) {
     part.pick.variantSku = event.target.value || '';
     await saveList();
-    renderListParts();
+    return;
   }
   await saveList();
   renderListSummary();
