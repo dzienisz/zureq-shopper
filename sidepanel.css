@@ -77,11 +77,13 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent-deep); bo
 .switch-label input:checked + .switch::after { transform: translateX(12px); }
 .hint, .muted { color: var(--muted); font-size: 11px; line-height: 1.45; }
 .hint { margin: 12px 0; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-#history { margin-top: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; max-width: 100%; }
+#history { margin-top: 12px; min-width: 0; }
 .chip { border: 1px solid var(--line); border-radius: 20px; padding: 5px 9px; background: #fff; color: var(--muted); font-size: 11px; }
-.market-chip { display: inline-flex; align-items: center; gap: 4px; }
-.market-chip input { display: none; }
+.history-chip { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.market-chip { position: relative; display: inline-flex; align-items: center; gap: 4px; }
+.market-chip input { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+.market-chip:has(input:focus-visible) { outline: 2px solid var(--accent-deep); outline-offset: 2px; }
 .market-chip:has(input:checked) { color: #fff; border-color: var(--ink); background: var(--ink); }
 .card { border: 1px solid var(--line); border-radius: 14px; padding: 10px; margin: 9px 0; display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 10px; background: #fff; }
 .product-image { width: 58px; height: 58px; border-radius: 8px; background: var(--panel); object-fit: cover; }
@@ -173,6 +175,16 @@ legend { margin-bottom: 8px; }
   .tabs { padding-right: 6px; padding-left: 6px; }
   .tab { padding-right: 4px; padding-left: 4px; font-size: 12px; letter-spacing: -.025em; }
   .form-grid { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 62px; gap: 6px; }
+}
+@media (max-width: 340px) {
+  .app-header { padding-left: 12px; padding-right: 12px; }
+  .brand-lockup { gap: 5px; }
+  .brand-product { display: none; }
+  .brand-name { font-size: 10px; }
+  .header-actions { gap: 4px; }
+  .usage-badge { min-height: 30px; padding: 0 5px; font-size: 10px; }
+  .usage-badge::before { width: 5px; height: 5px; margin-right: 4px; }
+  .icon-button { width: 30px; height: 30px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .spinner, .skeleton-image, .skeleton-bar { animation: none; }
