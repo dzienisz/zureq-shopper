@@ -72,8 +72,8 @@ export function freshnessLabel(details, now = Date.now()) {
   const minutes = Math.floor(age / 60000);
   if (minutes < 60) return `Updated ${minutes} min ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
-  return `${Math.floor(hours / 24)} d ago`;
+  if (hours < 24) return `Updated ${hours} h ago`;
+  return `Updated ${Math.floor(hours / 24)} d ago`;
 }
 
 export function chunkLines(lines, max) {

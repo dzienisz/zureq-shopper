@@ -123,8 +123,8 @@ test('formats product freshness labels', () => {
   assert.equal(freshnessLabel({ live: false }, timestamp), '');
   assert.equal(freshnessLabel({ syncedAt }, timestamp + 59999), 'Updated just now');
   assert.equal(freshnessLabel({ syncedAt }, timestamp + 2 * 60000), 'Updated 2 min ago');
-  assert.equal(freshnessLabel({ syncedAt }, timestamp + 4 * 60 * 60 * 1000), '4 h ago');
-  assert.equal(freshnessLabel({ syncedAt }, timestamp + 2 * 24 * 60 * 60 * 1000), '2 d ago');
+  assert.equal(freshnessLabel({ syncedAt }, timestamp + 4 * 60 * 60 * 1000), 'Updated 4 h ago');
+  assert.equal(freshnessLabel({ syncedAt }, timestamp + 2 * 24 * 60 * 60 * 1000), 'Updated 2 d ago');
   assert.equal(freshnessLabel({ syncedAt: 'not-a-date' }, timestamp), '');
 });
 
