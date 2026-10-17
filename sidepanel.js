@@ -5,12 +5,13 @@ import {
   getShopInfo, isLowCredits, locationArgs, normalizeMarkets, stockLabel
 } from './zureq.js';
 import { groupListPicks, MAX_LIST_ITEMS, migrateListState, parseListInput } from './list.js';
+import { setBusy, skeletonHtml } from './loading.js';
 import { addWatch, clearAlerts, getWatches, removeWatch } from './watchlist.js';
 
 const $ = (id) => document.getElementById(id);
 const state = {
   products: [], details: new Map(), history: [], markets: [],
-  selectedMarkets: [], sessionCredits: 0, source: null,
+  selectedMarkets: [], sessionCredits: 0, source: null, searching: false, comparing: false,
   list: { text: '', country: '', parts: [], running: false },
   listGroups: [],
   usage: {
@@ -186,23 +187,30 @@ function watchSearchBaseline(products) {
   const best = matching.sort((a, b) => Number(a.price) - Number(b.price))[0];
   return { price: Number(best.price), currency };
 }
-async function watchProduct(product) {
+async function watchProduct(product, button) {
   const price = Number(product.price);
   if (!Number.isFinite(price) || !product.currency) {
     showNotice('This product has no comparable price yet.', true);
     return;
   }
   const name = decodeEntities(product.name);
-  await addWatch({
-    type: 'product',
-    query: $('query').value.trim() || name,
-    country: $('country').value,
-    shopId: product.shopId,
-    sku: product.sku,
-    name,
-    baseline: { price, currency: product.currency }
-  });
-  showNotice(`Watching “${name}”.`);
+  setBusy(button, true, 'Saving…');
+  try {
+    await addWatch({
+      type: 'product',
+      query: $('query').value.trim() || name,
+      country: $('country').value,
+      shopId: product.shopId,
+      sku: product.sku,
+      name,
+      baseline: { price, currency: product.currency }
+    });
+    showNotice(`Watching “${name}”.`);
+  } catch (error) {
+    handleError(error);
+  } finally {
+    if (button?.isConnected) setBusy(button, false);
+  }
 }
 async function watchSearch() {
   const query = $('query').value.trim();
@@ -270,11 +278,19 @@ function renderProducts() {
 }
 async function search(event) {
   event?.preventDefault();
+  if (state.searching) return;
   clearNotice();
   const query = $('query').value.trim();
   if (!query) return;
   const args = { query, ...locationArgs($('country').value), maxPrice: $('max-price').value ? Number($('max-price').value) : undefined, inStockOnly: $('in-stock').checked, limit: Math.min(50, Number($('limit').value) || 10) };
   Object.keys(args).forEach((key) => args[key] === undefined && delete args[key]);
+  const button = event?.submitter || $('search-form').querySelector('[type="submit"]');
+  const results = $('search-results');
+  const previousResults = results.innerHTML;
+  state.searching = true;
+  setBusy(button, true, 'Searching…');
+  results.setAttribute('aria-busy', 'true');
+  results.innerHTML = skeletonHtml('product', Math.min(args.limit, 4));
   try {
     const data = await tool('search_products', args);
     state.products = data?.products || data?.items || [];
@@ -282,9 +298,16 @@ async function search(event) {
     state.history = await addSearchHistory(query);
     renderHistory();
     renderProducts();
-  } catch (error) { handleError(error); }
+  } catch (error) {
+    results.innerHTML = previousResults;
+    handleError(error);
+  } finally {
+    state.searching = false;
+    if (button?.isConnected) setBusy(button, false);
+    results.removeAttribute('aria-busy');
+  }
 }
-async function showDetails(card) {
+async function showDetails(card, button) {
   const product = productFromCard(card);
   if (!product) return;
   const key = productKey(product);
@@ -293,6 +316,7 @@ async function showDetails(card) {
     renderProducts();
     return;
   }
+  setBusy(button, true, 'Loading…');
   try {
     const result = await tool('get_product', { shopId: product.shopId, sku: product.sku });
     const details = result?.product || result;
@@ -301,14 +325,18 @@ async function showDetails(card) {
     const productDetails = { ...details, shopWebsite: cachedShop?.website };
     state.details.set(key, productDetails);
     renderProducts();
-  } catch (error) { handleError(error); }
+  } catch (error) {
+    handleError(error);
+  } finally {
+    if (button?.isConnected) setBusy(button, false);
+  }
 }
-async function checkout(card) {
+async function checkout(card, button) {
   const product = productFromCard(card);
   if (!product) return;
   const details = state.details.get(productKey(product));
   if (!details) {
-    await showDetails(card);
+    await showDetails(card, button);
     showNotice('Choose a variant if this product has one, then click Checkout.');
     return;
   }
@@ -321,6 +349,7 @@ async function checkout(card) {
     showNotice('Choose a variant before creating a checkout link.', true);
     return;
   }
+  setBusy(button, true, 'Creating…');
   try {
     const { info } = await getShopInfo(tool, product.shopId);
     state.details.set(productKey(product), { ...details, shopWebsite: info.website });
@@ -332,7 +361,11 @@ async function checkout(card) {
     const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
     const area = card.querySelector('.checkout-area') || card.querySelector('.details-slot');
     area.innerHTML = url ? `<div class="checkout"><a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a><div class="card-actions"><button data-action="open-url" data-url="${esc(url)}">Open</button><button data-action="copy-url" data-url="${esc(url)}">Copy</button></div></div>` : '<div class="checkout">No checkout URL was returned.</div>';
-  } catch (error) { handleError(error); }
+  } catch (error) {
+    handleError(error);
+  } finally {
+    if (button?.isConnected) setBusy(button, false);
+  }
 }
 
 async function saveList() {
@@ -349,6 +382,12 @@ function updateListEstimate() {
   $('search-list').disabled = state.list.running || count === 0 || count > MAX_LIST_ITEMS;
   if (count > MAX_LIST_ITEMS) $('list-run-status').textContent = `Enter no more than ${MAX_LIST_ITEMS} items.`;
   else if (!state.list.running && !state.list.parts.length) $('list-run-status').textContent = 'Enter up to 10 items.';
+}
+
+function setListRunStatus(message, busy = state.list.running) {
+  $('list-run-status').innerHTML = busy
+    ? `<span class="spinner" aria-hidden="true"></span>${esc(message)}`
+    : esc(message);
 }
 
 async function handleListInput() {
@@ -395,6 +434,7 @@ async function searchListItems() {
     return;
   }
   if (state.list.running) return;
+  const button = $('search-list');
   clearNotice();
   state.list = {
     text,
@@ -404,39 +444,48 @@ async function searchListItems() {
   };
   $('list-input').disabled = true;
   $('list-country').disabled = true;
-  $('list-run-status').textContent = 'Preparing searches…';
+  setBusy(button, true, 'Searching…');
+  setListRunStatus('Preparing searches…');
   updateListEstimate();
-  await saveList();
-  renderListParts();
-  renderListSummary();
-  for (let index = 0; index < state.list.parts.length; index += 1) {
-    const part = state.list.parts[index];
-    $('list-run-status').textContent = `Searching ${index + 1} of ${state.list.parts.length}: ${part.query}`;
-    try {
-      const data = await tool('search_products', {
-        query: part.query,
-        ...locationArgs(state.list.country),
-        inStockOnly: true,
-        limit: 5
-      });
-      part.candidates = (data?.products || data?.items || []).slice(0, 5);
-      part.searched = true;
-      part.error = '';
-    } catch (error) {
-      part.searched = true;
-      part.error = error instanceof ZureqError ? error.message : 'Search failed.';
-      handleError(error);
-    }
+  let completed = false;
+  try {
     await saveList();
     renderListParts();
     renderListSummary();
+    for (let index = 0; index < state.list.parts.length; index += 1) {
+      const part = state.list.parts[index];
+      setListRunStatus(`Searching ${index + 1} of ${state.list.parts.length}: ${part.query}`);
+      try {
+        const data = await tool('search_products', {
+          query: part.query,
+          ...locationArgs(state.list.country),
+          inStockOnly: true,
+          limit: 5
+        });
+        part.candidates = (data?.products || data?.items || []).slice(0, 5);
+        part.searched = true;
+        part.error = '';
+      } catch (error) {
+        part.searched = true;
+        part.error = error instanceof ZureqError ? error.message : 'Search failed.';
+        handleError(error);
+      }
+      await saveList();
+      renderListParts();
+      renderListSummary();
+    }
+    completed = true;
+  } catch (error) {
+    handleError(error);
+  } finally {
+    state.list.running = false;
+    $('list-input').disabled = false;
+    $('list-country').disabled = false;
+    setBusy(button, false);
+    updateListEstimate();
+    setListRunStatus(completed ? 'Search complete. Pick one result per item.' : 'Search interrupted.', false);
+    await saveList();
   }
-  state.list.running = false;
-  $('list-input').disabled = false;
-  $('list-country').disabled = false;
-  $('list-run-status').textContent = 'Search complete. Pick one result per item.';
-  updateListEstimate();
-  await saveList();
 }
 
 async function listCheckout(groupIndex) {
@@ -531,17 +580,25 @@ function normalizeComparison(data) {
   return data?.markets || data?.results || data?.comparisons || (Array.isArray(data) ? data : []);
 }
 async function compare(event) {
-  event.preventDefault();
+  event?.preventDefault();
+  if (state.comparing) return;
   clearNotice();
   if (state.selectedMarkets.length < 2 || state.selectedMarkets.length > 4) {
     showNotice('Choose between 2 and 4 markets.', true);
     return;
   }
+  const button = event?.submitter || $('compare-form').querySelector('[type="submit"]');
+  const resultsContainer = $('compare-results');
+  const previousResults = resultsContainer.innerHTML;
+  state.comparing = true;
+  setBusy(button, true, 'Comparing…');
+  resultsContainer.setAttribute('aria-busy', 'true');
+  resultsContainer.innerHTML = skeletonHtml('market', state.selectedMarkets.length);
   try {
     const data = await tool('compare_markets', { query: $('compare-query').value.trim(), markets: state.selectedMarkets, currency: $('currency').value.trim().toUpperCase() || 'PLN' });
     const results = normalizeComparison(data);
     const targetCurrency = data?.currency || $('currency').value.toUpperCase();
-    $('compare-results').innerHTML = results.length ? results.map((market) => {
+    resultsContainer.innerHTML = results.length ? results.map((market) => {
       const name = market.label || market.market || market.country || market.name || market.key || market.code || 'Market';
       const candidates = market.offers || market.candidates || market.products || market.items || [];
       const range = market.priceRange;
@@ -558,7 +615,14 @@ async function compare(event) {
         : `${esc(offer.price ?? offer.convertedPrice ?? '')} ${esc(offer.currency || targetCurrency)}`;
       return `<article class="market-result"><h3>${esc(name)}</h3><div class="market-stats">${stats.map((stat) => esc(stat)).join(' · ') || 'Market results'}</div>${delivery ? `<p class="hint">${esc(delivery)}</p>` : ''}${candidates.length ? `<ul>${candidates.slice(0, 5).map((offer) => `<li class="compare-offer">${imageMarkup(offer, offer.shopName || offer.shopId || 'Shop', 'compare-image')}<span class="compare-offer-copy">${esc(decodeEntities(offer.name || offer.productName || 'Offer'))} <span class="muted">· ${esc(offer.shopName || offer.shopId || '')}</span> — ${priceOf(offer)}</span></li>`).join('')}</ul>` : '<p class="hint">No offers returned.</p>'}</article>`;
     }).join('') + (data?.note ? `<p class="hint">${esc(data.note)}</p>` : '') : '<p class="hint">No comparison rows returned.</p>';
-  } catch (error) { handleError(error); }
+  } catch (error) {
+    resultsContainer.innerHTML = previousResults;
+    handleError(error);
+  } finally {
+    state.comparing = false;
+    if (button?.isConnected) setBusy(button, false);
+    resultsContainer.removeAttribute('aria-busy');
+  }
 }
 async function refreshUsage(force = false) {
   const usage = state.usage;
@@ -635,15 +699,15 @@ $('search-results').addEventListener('click', (event) => {
   }
   const card = button.closest('.card');
   if (button.dataset.action === 'watch') {
-    watchProduct(productFromCard(card));
+    watchProduct(productFromCard(card), button);
     return;
   }
   if (button.dataset.action === 'watch-search') {
     watchSearch();
     return;
   }
-  if (button.dataset.action === 'details') showDetails(card);
-  if (button.dataset.action === 'checkout') checkout(card);
+  if (button.dataset.action === 'details') showDetails(card, button);
+  if (button.dataset.action === 'checkout') checkout(card, button);
   if (button.dataset.action === 'open-url') chrome.tabs.create({ url: button.dataset.url });
   if (button.dataset.action === 'copy-url') navigator.clipboard.writeText(button.dataset.url).then(() => showNotice('Checkout link copied.'));
 });
@@ -700,7 +764,8 @@ $('watch-list').addEventListener('click', async (event) => {
   }
 });
 $('check-watches').addEventListener('click', async () => {
-  $('check-watches').disabled = true;
+  const button = $('check-watches');
+  setBusy(button, true, 'Checking…');
   try {
     const result = await chrome.runtime.sendMessage({ type: 'zureq-check-watchlist' });
     showNotice(`Checked ${result?.checked || 0} watch${result?.checked === 1 ? '' : 'es'}; ${result?.alerts || 0} cheaper.`);
@@ -708,7 +773,7 @@ $('check-watches').addEventListener('click', async () => {
   } catch {
     showNotice('Could not check the watchlist.', true);
   } finally {
-    $('check-watches').disabled = false;
+    setBusy(button, false);
   }
 });
 async function applyPending(pending) {
