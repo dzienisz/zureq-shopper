@@ -29,7 +29,10 @@ export function migrateListState(saved, defaultCountry = '') {
   return {
     text: parts.map((part) => part.query).join('\n'),
     country: String(saved?.country || defaultCountry || ''),
-    parts
+    parts,
+    productDetails: saved?.productDetails && typeof saved.productDetails === 'object' && !Array.isArray(saved.productDetails)
+      ? saved.productDetails
+      : {}
   };
 }
 
