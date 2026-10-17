@@ -1,6 +1,6 @@
 import {
   TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool,
-  getCachedMarkets, getSearchHistory
+  getCachedMarkets, getSearchHistory, locationArgs, normalizeMarkets
 } from './zureq.js';
 import { BUILD_TEMPLATES, partsForBuild } from './builds.js';
 import { languageModelStatus, resolveIntent, summarizeWithModel } from './assistant.js';
@@ -55,14 +55,6 @@ async function tool(name, args) {
   showNoKey(false);
   if ($('notice').classList.contains('error')) clearNotice();
   return data;
-}
-function normalizeMarkets(data) {
-  const list = data?.markets || data?.countries || data?.items || (Array.isArray(data) ? data : []);
-  return list.map((item) => {
-    if (typeof item === 'string') return { code: item, label: item };
-    const code = item.code || item.isoCode || item.country || item.market || item.id;
-    return code ? { code: String(code).toUpperCase(), label: item.name || item.label || String(code).toUpperCase(), count: item.count } : null;
-  }).filter(Boolean);
 }
 async function loadMarkets() {
   let data = await getCachedMarkets();
@@ -149,7 +141,7 @@ function renderProducts() {
     const cheaper = state.source && Number.isFinite(Number(state.source.price)) &&
       String(state.source.currency || '').toUpperCase() === String(product.currency || '').toUpperCase() &&
       Number(product.price) < Number(state.source.price);
-    const detailHtml = details ? `<div class="details">${details.description ? `<p>${esc(details.description)}</p>` : ''}${details.variants?.length ? `<label>Variant<select class="variant-select" data-sku="${esc(product.sku)}">${details.variants.map((variant) => `<option value="${esc(variant.sku)}">${esc(variant.name || variant.title || variant.sku)}</option>`).join('')}</select></label>` : ''}<div class="checkout-area" data-checkout="${esc(product.sku)}"></div></div>` : '';
+    const detailHtml = details ? `<div class="details">${details.description ? `<p>${esc(details.description)}</p>` : ''}${details.variants?.length ? `<label>Variant<select class="variant-select" data-sku="${esc(product.sku)}">${details.variants.map((variant) => `<option value="${esc(variant.sku)}">${esc(variant.label || variant.name || variant.title || variant.sku)}</option>`).join('')}</select></label>` : ''}<div class="checkout-area" data-checkout="${esc(product.sku)}"></div></div>` : '';
     return `<article class="card" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}">${image}<div><h3>${esc(decodeEntities(product.name))}</h3><div class="meta">${esc(product.shopName || product.shopId || 'Unknown shop')} · ${esc(product.category || 'General')}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}${cheaper ? ' <span class="cheaper">cheaper</span>' : ''}</div><div class="${product.inStock ? 'stock' : 'stock out'}">${product.inStock ? 'In stock' : 'Out of stock'}</div></div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout link</button><button data-action="watch">Watch</button></div>${detailHtml}</article>`;
   }).join('') : '<p class="hint">No products found. Try a broader query or another country.</p>';
   if (products.length) {
@@ -161,7 +153,7 @@ async function search(event) {
   clearNotice();
   const query = $('query').value.trim();
   if (!query) return;
-  const args = { query, country: $('country').value || undefined, maxPrice: $('max-price').value ? Number($('max-price').value) : undefined, inStockOnly: $('in-stock').checked, limit: Math.min(50, Number($('limit').value) || 10) };
+  const args = { query, ...locationArgs($('country').value), maxPrice: $('max-price').value ? Number($('max-price').value) : undefined, inStockOnly: $('in-stock').checked, limit: Math.min(50, Number($('limit').value) || 10) };
   Object.keys(args).forEach((key) => args[key] === undefined && delete args[key]);
   try {
     const data = await tool('search_products', args);
@@ -363,7 +355,7 @@ async function searchBuildParts() {
     if (!part.include) continue;
     $('build-run-status').textContent = `Searching ${index + 1} of ${state.build.parts.length}: ${part.query}`;
     try {
-      const data = await tool('search_products', { query: part.query, country: $('build-country').value || undefined, inStockOnly: true, limit: 5 });
+      const data = await tool('search_products', { query: part.query, ...locationArgs($('build-country').value), inStockOnly: true, limit: 5 });
       part.candidates = data?.products || [];
       part.searched = true;
       part.pick = null;
@@ -458,7 +450,7 @@ function renderAssistantDetails(card, details) {
     slot.innerHTML = '';
     return;
   }
-  slot.innerHTML = `<div class="details">${details.description ? `<p>${esc(details.description)}</p>` : ''}${details.variants?.length ? `<label>Variant<select class="variant-select">${details.variants.map((variant) => `<option value="${esc(variant.sku)}">${esc(variant.name || variant.title || variant.sku)}</option>`).join('')}</select></label>` : ''}<div class="checkout-area"></div></div>`;
+  slot.innerHTML = `<div class="details">${details.description ? `<p>${esc(details.description)}</p>` : ''}${details.variants?.length ? `<label>Variant<select class="variant-select">${details.variants.map((variant) => `<option value="${esc(variant.sku)}">${esc(variant.label || variant.name || variant.title || variant.sku)}</option>`).join('')}</select></label>` : ''}<div class="checkout-area"></div></div>`;
 }
 
 function appendAssistantMessage(html, cost = 0, user = false) {
@@ -478,7 +470,7 @@ async function assistantSend(text) {
   let cost = 0;
   try {
     if (intent.type === 'search') {
-      const data = await tool('search_products', { query: intent.query, country: intent.country, maxPrice: intent.maxPrice, inStockOnly: true, limit: 5 });
+      const data = await tool('search_products', { query: intent.query, ...locationArgs(intent.country), maxPrice: intent.maxPrice, inStockOnly: true, limit: 5 });
       cost = TOOL_COSTS.search_products;
       const products = data?.products || [];
       const summary = await summarizeWithModel(value, data) || (products.length ? `I found ${products.length} relevant result${products.length === 1 ? '' : 's'}.` : 'I did not find matching products.');

@@ -111,6 +111,22 @@ test('checkWatchlist notifies newly cheaper watches', async () => {
   cleanup();
 });
 
+test('checkWatchlist sends EU watches as a region filter', async () => {
+  const cleanup = storageHarness([
+    { id: 'watch-eu', type: 'query', query: 'lamp', country: 'EU', name: 'Lamp', baseline: { price: 100, currency: 'PLN' }, alert: false, lastCheckedAt: null }
+  ]);
+  let request;
+  await checkWatchlist(async (name, args) => {
+    request = { name, args };
+    return { products: [] };
+  });
+  assert.deepEqual(request, {
+    name: 'search_products',
+    args: { query: 'lamp', region: 'EU', inStockOnly: true, limit: 10 }
+  });
+  cleanup();
+});
+
 test('checkWatchlist does not re-alert a seen price unless it drops further', async () => {
   const initial = [
     { id: 'watch-1', type: 'query', query: 'lamp', country: '', name: 'Lamp', baseline: { price: 100, currency: 'PLN' }, alert: false, lastPrice: 80, lastCheckedAt: 1 },

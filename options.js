@@ -1,4 +1,4 @@
-import { ZureqError, callTool, cacheMarkets, getCachedMarkets } from './zureq.js';
+import { ZureqError, callTool, cacheMarkets, getCachedMarkets, normalizeMarkets } from './zureq.js';
 
 const $ = (id) => document.getElementById(id);
 const status = (message, error = false) => {
@@ -6,14 +6,12 @@ const status = (message, error = false) => {
   $('status').className = error ? 'error' : '';
 };
 function fillCountries(data) {
-  const list = data?.markets || data?.countries || data?.items || (Array.isArray(data) ? data : []);
   const select = $('default-country');
-  for (const item of list) {
-    const code = typeof item === 'string' ? item : item.code || item.isoCode || item.country;
-    if (!code || [...select.options].some((option) => option.value === code)) continue;
+  for (const market of normalizeMarkets(data)) {
+    if ([...select.options].some((option) => option.value === market.code)) continue;
     const option = document.createElement('option');
-    option.value = code;
-    option.textContent = typeof item === 'string' ? item : item.name || code;
+    option.value = market.code;
+    option.textContent = `${market.label}${market.count != null ? ` (${market.count})` : ''}`;
     select.append(option);
   }
 }

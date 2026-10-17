@@ -1,3 +1,5 @@
+import { locationArgs } from './zureq.js';
+
 export const WATCH_ALARM = 'zureq-watchlist';
 export const WATCH_INTERVALS = Object.freeze({
   '6': 360,
@@ -126,8 +128,7 @@ export async function checkWatchlist(callTool, { notify = () => {}, setBadge = (
 
   for (let index = 0; index < watches.length; index += 1) {
     const watch = watches[index];
-    const args = { query: watch.query, inStockOnly: true, limit: 10 };
-    if (watch.country) args.country = watch.country;
+    const args = { query: watch.query, ...locationArgs(watch.country), inStockOnly: true, limit: 10 };
     try {
       const data = await callTool('search_products', args);
       const updated = applyResult(watch, evaluateWatch(watch, data?.products || []));
