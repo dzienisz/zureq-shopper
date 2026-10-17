@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.3] - 2026-10-17
+
+- List: Checkout link waits for product details, so products that need a size/
+  colour can't be sent without one, and the message stays visible.
+- List: changing a variant with the keyboard keeps focus on the picker.
+- Searches that Zureq reports as temporarily unavailable are retried once.
+- Watch "this search" uses the currency most results are in for its baseline.
+
 ## [1.3.2] - 2026-10-17
 
 - List: products that come in sizes/colours now show a Variant picker, and
