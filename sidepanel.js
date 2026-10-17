@@ -6,7 +6,7 @@ import {
 } from './zureq.js';
 import { groupListPicks, MAX_LIST_ITEMS, migrateListState, parseListInput } from './list.js';
 import { setBusy, skeletonHtml } from './loading.js';
-import { addWatch, clearAlerts, getWatches, removeWatch } from './watchlist.js';
+import { addWatch, clearAlerts, getWatches, removeWatch, searchBaseline } from './watchlist.js';
 
 const $ = (id) => document.getElementById(id);
 const state = {
@@ -179,15 +179,6 @@ function priceValue(product) {
   const value = Number(product.price ?? product.convertedPrice ?? product.minPrice);
   return Number.isFinite(value) ? value : Number.POSITIVE_INFINITY;
 }
-function watchSearchBaseline(products) {
-  const finite = products.filter((product) => Number.isFinite(Number(product.price)) && product.currency);
-  if (!finite.length) return null;
-  const first = [...finite].sort((a, b) => Number(a.price) - Number(b.price))[0];
-  const currency = String(first.currency).toUpperCase();
-  const matching = finite.filter((product) => String(product.currency).toUpperCase() === currency);
-  const best = matching.sort((a, b) => Number(a.price) - Number(b.price))[0];
-  return { price: Number(best.price), currency };
-}
 async function watchProduct(product, button) {
   const price = Number(product.price);
   if (!Number.isFinite(price) || !product.currency) {
@@ -216,7 +207,7 @@ async function watchProduct(product, button) {
 }
 async function watchSearch() {
   const lastSearch = state.lastSearch;
-  const baseline = watchSearchBaseline(state.products);
+  const baseline = searchBaseline(state.products);
   if (!lastSearch || !baseline) {
     showNotice('Search results need comparable prices before they can be watched.', true);
     return;

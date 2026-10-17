@@ -11,6 +11,28 @@ export const WATCH_INTERVALS = Object.freeze({
 const WATCH_KEY = 'zureqWatchlist';
 const MAX_WATCHES = 25;
 
+export function searchBaseline(products) {
+  const currencies = new Map();
+  for (const product of Array.isArray(products) ? products : []) {
+    const rawPrice = product?.price;
+    if (rawPrice == null || (typeof rawPrice === 'string' && !rawPrice.trim())) continue;
+    const price = Number(rawPrice);
+    const currency = String(product?.currency || '').trim().toUpperCase();
+    if (!Number.isFinite(price) || !currency) continue;
+    const group = currencies.get(currency) || { count: 0, price };
+    group.count += 1;
+    group.price = Math.min(group.price, price);
+    currencies.set(currency, group);
+  }
+  let baseline = null;
+  for (const [currency, group] of currencies) {
+    if (!baseline || group.count > baseline.count) {
+      baseline = { price: group.price, currency, count: group.count };
+    }
+  }
+  return baseline ? { price: baseline.price, currency: baseline.currency } : null;
+}
+
 function finitePrice(product) {
   const price = Number(product?.price);
   return Number.isFinite(price) ? price : null;

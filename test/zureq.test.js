@@ -95,6 +95,41 @@ test('calls the MCP endpoint with a key from fake Chrome storage', async () => {
   delete globalThis.fetch;
 });
 
+test('retries a temporarily unavailable API error once', async () => {
+  globalThis.chrome = { storage: { sync: { get: async () => ({ zureqApiKey: 'test-key' }) } } };
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return {
+      json: async () => (calls === 1
+        ? { result: { isError: true, content: [{ type: 'text', text: 'Search is temporarily unavailable. Please retry.' }] } }
+        : { result: { structuredContent: { products: [] } } })
+    };
+  };
+
+  assert.deepEqual(await callTool('search_products', {}), { products: [] });
+  assert.equal(calls, 2);
+});
+
+test('stops after two temporarily unavailable API errors', async () => {
+  globalThis.chrome = { storage: { sync: { get: async () => ({ zureqApiKey: 'test-key' }) } } };
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return {
+      json: async () => ({
+        result: { isError: true, content: [{ type: 'text', text: 'Search is temporarily unavailable. Please retry.' }] }
+      })
+    };
+  };
+
+  await assert.rejects(
+    callTool('search_products', {}),
+    (error) => error.code === 'API_ERROR' && /temporarily unavailable/i.test(error.message)
+  );
+  assert.equal(calls, 2);
+});
+
 test('uses an API-key override without reading Chrome storage', async () => {
   let storageCalls = 0;
   let authorization;

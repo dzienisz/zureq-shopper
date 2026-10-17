@@ -182,8 +182,10 @@ export async function callTool(name, args = {}, options = {}) {
     try {
       return parseToolResponse(payload);
     } catch (error) {
-      if (error.code === 'RATE_LIMIT' && attempt < maxAttempts) {
-        await delay(2000);
+      const transientUnavailable = error.code === 'API_ERROR'
+        && /temporarily unavailable/i.test(error.message);
+      if ((error.code === 'RATE_LIMIT' || transientUnavailable) && attempt < maxAttempts) {
+        await delay(transientUnavailable ? 1500 : 2000);
         continue;
       }
       throw error;
