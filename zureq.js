@@ -41,13 +41,15 @@ export function normalizeMarkets(data) {
     const code = typeof item === 'string' ? item : item.code || item.isoCode || item.country || item.market || item.id;
     if (!code) return null;
     const normalizedCode = String(code).toUpperCase();
-    let label = normalizedCode;
-    try {
-      label = new Intl.DisplayNames(['en'], { type: 'region' }).of(normalizedCode) || normalizedCode;
-    } catch {}
+    let label = typeof item === 'string' ? '' : item.name || item.label;
+    if (!label) {
+      try {
+        label = new Intl.DisplayNames(['en'], { type: 'region' }).of(normalizedCode);
+      } catch {}
+    }
     return {
       code: normalizedCode,
-      label,
+      label: label || normalizedCode,
       count: typeof item === 'string' ? undefined : item.count ?? item.shops
     };
   }).filter(Boolean);
@@ -76,7 +78,11 @@ export function parseToolResponse(payload) {
       if (result.isError) throw new ZureqError('API_ERROR', text);
       return structuredContent !== undefined ? structuredContent : text;
     }
-    if (result.isError || parsed?.error) throw new ZureqError('API_ERROR', parsed?.error || text);
+    if (result.isError || parsed?.error) {
+      const error = parsed?.error;
+      const message = error && typeof error === 'object' ? error.message || text : error || text;
+      throw new ZureqError('API_ERROR', message);
+    }
     return structuredContent !== undefined ? structuredContent : parsed;
   }
   if (result.isError) throw new ZureqError('API_ERROR', 'Zureq returned an error.');

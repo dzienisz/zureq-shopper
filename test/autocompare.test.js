@@ -19,6 +19,7 @@ test('pickBest filters currency and reports cheaper offers', () => {
 test('cache entries expire after the configured TTL', () => {
   const cache = {};
   const key = cacheKey('PL', 'Camera');
+  assert.equal(key, 'v2:PL|camera');
   putCached(cache, key, [product(10)], 1000);
   assert.deepEqual(getCached(cache, key, 1000 + AUTO_COMPARE_TTL - 1), { products: [product(10)] });
   assert.equal(getCached(cache, key, 1000 + AUTO_COMPARE_TTL), null);

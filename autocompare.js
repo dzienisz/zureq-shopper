@@ -1,7 +1,7 @@
 export const AUTO_COMPARE_TTL = 6 * 60 * 60 * 1000;
 
 export function cacheKey(country, query) {
-  return `${country || ''}|${String(query || '').toLowerCase()}`;
+  return `v2:${country || ''}|${String(query || '').toLowerCase()}`;
 }
 
 export function getCached(cache, key, now = Date.now()) {
