@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addWatch, applyResult, checkWatchlist, evaluateWatch, getWatches
+  addWatch, applyResult, checkWatchlist, evaluateWatch, getWatches, searchBaseline
 } from '../watchlist.js';
 import { ZureqError } from '../zureq.js';
 
@@ -20,6 +20,31 @@ function storageHarness(initial = []) {
     return value;
   };
 }
+
+test('searchBaseline uses the majority currency before choosing its lowest price', () => {
+  assert.deepEqual(searchBaseline([
+    { price: 3, currency: 'EUR' },
+    { price: 100, currency: 'PLN' },
+    { price: 80, currency: 'PLN' },
+    { price: 90, currency: 'PLN' }
+  ]), { price: 80, currency: 'PLN' });
+});
+
+test('searchBaseline breaks currency-count ties by first result order', () => {
+  assert.deepEqual(searchBaseline([
+    { price: 40, currency: 'EUR' },
+    { price: 1, currency: 'PLN' }
+  ]), { price: 40, currency: 'EUR' });
+});
+
+test('searchBaseline returns null without finite priced products and currencies', () => {
+  assert.equal(searchBaseline([]), null);
+  assert.equal(searchBaseline([
+    { price: Number.POSITIVE_INFINITY, currency: 'PLN' },
+    { price: '', currency: 'EUR' },
+    { price: 10, currency: '' }
+  ]), null);
+});
 
 test('evaluateWatch filters products, currency, and picks the cheapest', () => {
   const watch = {
