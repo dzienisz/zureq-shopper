@@ -31,6 +31,8 @@ FEATURES
 
 - Product search with country, price, stock, result-limit filters, image
   placeholders, product details, and variants.
+- Busy buttons and spinners show progress during longer actions; Search and
+  Compare also display skeleton results while loading.
 - Live comparison across 2–4 markets with delivery notes and converted prices.
 - List searches up to 10 items with up to five candidates per item and
   per-shop totals.
@@ -117,4 +119,4 @@ Shopping
 | tile-small.png | 440×280 | Small promo tile |
 | tile-marquee.png | 1400×560 | Marquee promo tile |
 
-Regenerate: `./render.sh` (needs Chrome + ImageMagick). Extension icons: `python3 make-icons.py` (needs Pillow).
+Regenerate screenshots and tiles: `./render.sh` (needs Chrome + ImageMagick). Extension icons are rendered from `icons/zureq-mark.svg` at exact transparent 16×16, 48×48, and 128×128 viewports, then finished with a supersampled rounded-corner alpha mask (rx 14/64).
