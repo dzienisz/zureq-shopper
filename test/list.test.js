@@ -34,7 +34,7 @@ test('migrates saved Build items and ignores preset fields', () => {
   assert.equal(migrated.parts.length, MAX_LIST_ITEMS);
   assert.equal(migrated.text.split('\n').length, MAX_LIST_ITEMS);
   assert.equal(migrated.parts[0].pick.sku, 'sku-1');
-  assert.deepEqual(Object.keys(migrated).sort(), ['country', 'parts', 'text']);
+  assert.deepEqual(Object.keys(migrated).sort(), ['country', 'parts', 'productDetails', 'text']);
   assert.equal('templateId' in migrated, false);
 });
 
@@ -43,6 +43,12 @@ test('migrates a saved text-only list', () => {
   assert.equal(migrated.text, 'desk lamp\nusb c hub');
   assert.equal(migrated.country, 'PL');
   assert.deepEqual(migrated.parts.map((part) => part.query), ['desk lamp', 'usb c hub']);
+});
+
+test('restores cached List product details from saved state', () => {
+  const productDetails = { 'bizzle-pl::5451': { requiresVariant: true, variants: [{ sku: '5453' }] } };
+  const migrated = migrateListState({ text: 't-shirt', productDetails });
+  assert.deepEqual(migrated.productDetails, productDetails);
 });
 
 test('groups selected list candidates by shop and currency', () => {

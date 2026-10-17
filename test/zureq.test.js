@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addSearchHistory, callTool, chunkLines, formatCredits, freshnessLabel, getCachedShopInfo,
+  addSearchHistory, callTool, checkoutSku, chunkLines, formatCredits, freshnessLabel, getCachedShopInfo,
   getShopInfo, locationArgs, mapApiError, normalizeMarkets, parseMaxPrice, parseToolResponse,
   isLowCredits, stockLabel, ZureqError
 } from '../zureq.js';
@@ -37,6 +37,11 @@ test('parses max price as empty, positive finite, or invalid', () => {
   for (const raw of ['0', '-1', 'NaN', 'Infinity']) {
     assert.deepEqual(parseMaxPrice(raw), { error: 'Max price must be greater than 0.' });
   }
+});
+
+test('uses the selected variant SKU for checkout', () => {
+  assert.equal(checkoutSku({ sku: 'parent', variantSku: 'child' }), 'child');
+  assert.equal(checkoutSku({ sku: 'parent' }), 'parent');
 });
 
 test('prefers API-provided market labels', () => {

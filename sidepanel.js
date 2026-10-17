@@ -1,6 +1,6 @@
 import {
   TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool, chunkLines,
-  formatCredits,
+  checkoutSku, formatCredits,
   freshnessLabel, getCachedMarkets, getCachedShopInfo, getSearchHistory,
   getShopInfo, isLowCredits, locationArgs, normalizeMarkets, parseMaxPrice, stockLabel
 } from './zureq.js';
@@ -12,7 +12,7 @@ const $ = (id) => document.getElementById(id);
 const state = {
   products: [], details: new Map(), history: [], markets: [], lastSearch: null,
   selectedMarkets: [], sessionCredits: 0, source: null, searching: false, comparing: false,
-  list: { text: '', country: '', parts: [], running: false },
+  list: { text: '', country: '', parts: [], productDetails: {}, running: false },
   listGroups: [],
   usage: {
     remaining: null, included: null, used: null, plan: '—', period: '—',
@@ -24,6 +24,7 @@ let queuedPending = null;
 let handledPending = '';
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const productKey = (product) => `${product.shopId}::${product.sku}`;
+const listDetailsRequests = new Map();
 function imageCandidates(item) {
   return [
     item?.imageUrl, item?.image_url, item?.image, item?.thumbnailUrl,
@@ -163,7 +164,7 @@ async function loadMarkets() {
   renderMarketChips();
 }
 function renderHistory() {
-  $('history').innerHTML = state.history.length ? `<span class="muted">Recent</span>${state.history.slice(0, 6).map((query) => `<button class="chip history-chip" data-query="${esc(query)}">${esc(query)}</button>`).join('')}` : '';
+  $('history').innerHTML = state.history.length ? `<span class="muted">Recent</span>${state.history.slice(0, 6).map((query) => `<button class="chip history-chip" data-query="${esc(query)}" title="${esc(query)}">${esc(query)}</button>`).join('')}` : '';
 }
 function renderMarketChips() {
   const all = [{ code: 'EU', label: 'EU' }, { code: 'WORLD', label: 'World' }, ...state.markets.filter((market) => !['EU', 'WORLD'].includes(market.code))];
@@ -384,8 +385,8 @@ async function checkout(card, button) {
 }
 
 async function saveList() {
-  const { text, country, parts } = state.list;
-  await chrome.storage.local.set({ zureqBuild: { text, country, parts } });
+  const { text, country, parts, productDetails } = state.list;
+  await chrome.storage.local.set({ zureqBuild: { text, country, parts, productDetails } });
 }
 
 function updateListEstimate() {
@@ -424,7 +425,60 @@ function renderListParts() {
   $('list-parts').innerHTML = parts.length ? parts.map((part, index) => `<div class="list-item" data-item="${index}">
     <h3>${esc(part.name)}</h3>
     <div class="list-candidates">${part.candidates?.length ? part.candidates.slice(0, 5).map((candidate, candidateIndex) => `<label class="candidate-row"><input type="radio" name="list-pick-${index}" class="part-pick" value="${candidateIndex}" ${part.pick?.sku === candidate.sku && part.pick?.shopId === candidate.shopId ? 'checked' : ''}><span class="candidate-name">${esc(decodeEntities(candidate.name))} · ${esc(candidate.shopName || candidate.shopId || '')}</span><span class="candidate-price">${esc(candidate.price)} ${esc(candidate.currency || '')}</span></label>`).join('') : `<span class="muted">${part.error ? esc(part.error) : part.searched ? `No results for “${esc(part.query)}”.` : 'Not searched yet.'}</span>`}</div>
+    ${listPickDetailsHtml(part, index)}
   </div>`).join('') : '';
+}
+
+function listPickDetailsHtml(part, index) {
+  if (!part.pick) return '';
+  const key = productKey(part.pick);
+  const details = state.list.productDetails?.[key];
+  if (part.detailErrorKey === key && part.detailError) {
+    return `<p class="hint list-detail-error">${esc(part.detailError)}</p>`;
+  }
+  if (part.loadingDetailsFor === key) return '<p class="hint">Loading product details…</p>';
+  if (!details || (!details.variants?.length && !details.requiresVariant)) return '';
+  const variants = Array.isArray(details.variants) ? details.variants : [];
+  const options = variants.length
+    ? `<option value="" ${part.pick.variantSku ? '' : 'selected'}>Choose a variant</option>${variants.map((variant) => `<option value="${esc(variant.sku)}" ${String(part.pick.variantSku || '') === String(variant.sku) ? 'selected' : ''}>${esc(variant.label || variant.name || variant.title || variant.sku)}</option>`).join('')}`
+    : '<option value="" selected>Variant options unavailable</option>';
+  return `<label class="list-variant-label">Variant<select class="list-variant" data-item="${index}">${options}</select></label>`;
+}
+
+async function loadListPickDetails(part, pick) {
+  const key = productKey(pick);
+  if (state.list.productDetails?.[key]) return;
+  part.detailError = '';
+  part.detailErrorKey = '';
+  part.loadingDetailsFor = key;
+  renderListParts();
+  let request = listDetailsRequests.get(key);
+  if (!request) {
+    request = tool('get_product', { shopId: pick.shopId, sku: pick.sku })
+      .then((result) => result?.product || result);
+    listDetailsRequests.set(key, request);
+  }
+  try {
+    const details = await request;
+    state.list.productDetails ||= {};
+    state.list.productDetails[key] = details;
+    if (part.pick && productKey(part.pick) === key) {
+      part.detailError = '';
+      part.detailErrorKey = '';
+      if (part.loadingDetailsFor === key) part.loadingDetailsFor = '';
+    }
+    await saveList();
+  } catch (error) {
+    if (part.pick && productKey(part.pick) === key) {
+      part.detailError = error instanceof ZureqError ? error.message : 'Could not load product details.';
+      part.detailErrorKey = key;
+      if (part.loadingDetailsFor === key) part.loadingDetailsFor = '';
+    }
+  } finally {
+    if (listDetailsRequests.get(key) === request) listDetailsRequests.delete(key);
+    renderListParts();
+    renderListSummary();
+  }
 }
 
 function renderListSummary() {
@@ -455,6 +509,7 @@ async function searchListItems() {
     text,
     country: $('list-country').value,
     parts: queries.map((query, index) => ({ id: index, name: query, query, candidates: [], pick: null, searched: false })),
+    productDetails: state.list.productDetails || {},
     running: true
   };
   $('list-input').disabled = true;
@@ -508,6 +563,14 @@ async function listCheckout(groupIndex) {
   if (!group) return;
   const button = document.querySelector(`.list-summary-group[data-group="${groupIndex}"] .list-checkout`);
   const target = button?.parentElement.querySelector('.list-link');
+  const unresolved = group.picks.filter(({ candidate }) => {
+    const details = state.list.productDetails?.[productKey(candidate)];
+    return (details?.requiresVariant || details?.variants?.length) && !candidate.variantSku;
+  });
+  if (unresolved.length) {
+    if (target) target.textContent = `Choose a variant for: ${unresolved.map(({ part }) => part.name).join(', ')}`;
+    return;
+  }
   if (button) button.disabled = true;
   try {
     if (!group.shopId) throw new ZureqError('API_ERROR', 'Shop information is unavailable for this item.');
@@ -524,7 +587,7 @@ async function listCheckout(groupIndex) {
       try {
         const data = await tool('create_checkout_link', {
           shopId: group.shopId,
-          lines: chunk.map(({ candidate }) => ({ sku: candidate.sku, quantity: 1 }))
+          lines: chunk.map(({ candidate }) => ({ sku: checkoutSku(candidate), quantity: 1 }))
         });
         const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
         links.push(url
@@ -540,7 +603,7 @@ async function listCheckout(groupIndex) {
             try {
               const data = await tool('create_checkout_link', {
                 shopId: group.shopId,
-                lines: [{ sku: candidate.sku, quantity: 1 }]
+                lines: [{ sku: checkoutSku(candidate), quantity: 1 }]
               });
               const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
               itemLinks.push(url
@@ -738,7 +801,7 @@ $('list-country').addEventListener('change', async () => {
 });
 $('search-list').addEventListener('click', searchListItems);
 $('clear-list').addEventListener('click', async () => {
-  state.list = { text: '', country: $('list-country').value, parts: [], running: false };
+  state.list = { text: '', country: $('list-country').value, parts: [], productDetails: {}, running: false };
   state.listGroups = [];
   $('list-input').value = '';
   $('list-run-status').textContent = 'Enter up to 10 items.';
@@ -754,7 +817,27 @@ $('list-parts').addEventListener('change', async (event) => {
   if (!row) return;
   const part = state.list.parts[Number(row.dataset.item)];
   if (!part) return;
-  if (event.target.classList.contains('part-pick')) part.pick = part.candidates[Number(event.target.value)] || null;
+  if (event.target.classList.contains('part-pick')) {
+    const previous = part.pick;
+    const candidate = part.candidates[Number(event.target.value)] || null;
+    if (candidate && previous && productKey(previous) === productKey(candidate) && previous.variantSku) {
+      candidate.variantSku = previous.variantSku;
+    }
+    part.pick = candidate;
+    part.detailError = '';
+    part.detailErrorKey = '';
+    part.loadingDetailsFor = '';
+    await saveList();
+    renderListParts();
+    renderListSummary();
+    if (candidate) await loadListPickDetails(part, candidate);
+    return;
+  }
+  if (event.target.classList.contains('list-variant')) {
+    part.pick.variantSku = event.target.value || '';
+    await saveList();
+    renderListParts();
+  }
   await saveList();
   renderListSummary();
 });
