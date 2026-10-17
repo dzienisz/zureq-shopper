@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.1] - 2026-10-17
+
+- Added loading feedback with busy buttons and spinners for Search, Compare,
+  Details, Checkout, List, and Watch; Search and Compare also show skeleton
+  results while loading.
+- Applied ZUREQ branding across the extension, including the logo, color
+  palette, regenerated icons, and branded Options page.
+
 ## [1.3.0] - 2026-10-17
 
 - Fixed EU searches to use the region filter; improved variant labels, readable
