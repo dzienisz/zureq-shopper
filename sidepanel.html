@@ -8,10 +8,7 @@
 </head>
 <body>
   <header class="app-header">
-    <div>
-      <p class="eyebrow">ZUREQ</p>
-      <h1>Shopper</h1>
-    </div>
+    <h1 class="brand-lockup" aria-label="ZUREQ Shopper"><img src="icons/zureq-mark.svg" width="28" height="28" alt=""><span class="brand-name">ZUREQ</span><span class="brand-product">Shopper</span></h1>
     <div class="header-actions">
       <button class="usage-badge" id="usage-toggle" type="button" aria-controls="usage-popover" aria-expanded="false">—</button>
       <button class="icon-button" id="open-options" title="Open options" aria-label="Open options">⚙</button>
@@ -23,10 +20,10 @@
       </div>
       <dl class="usage-details">
         <div><dt>Plan</dt><dd id="usage-plan">—</dd></div>
-        <div><dt>Used / included</dt><dd id="usage-used-included">—</dd></div>
+        <div><dt>Used / included</dt><dd id="usage-used-included" class="credit-number">—</dd></div>
         <div><dt>Period</dt><dd id="usage-period">—</dd></div>
       </dl>
-      <p class="usage-session-line">Session estimate: <strong id="usage-session">0 credits</strong></p>
+      <p class="usage-session-line">Session estimate: <strong id="usage-session" class="credit-number">0 credits</strong></p>
       <p id="usage-error" class="hint usage-error hidden">Usage could not be loaded.</p>
       <p class="hint usage-note">Background watch checks are not included in the session estimate.</p>
     </section>

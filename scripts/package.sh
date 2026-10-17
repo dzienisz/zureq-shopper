@@ -20,7 +20,7 @@ zip -q "$ZIP" \
   manifest.json background.js zureq.js list.js loading.js autocompare.js pagescan.js content.js watchlist.js \
   sidepanel.html sidepanel.js sidepanel.css \
   options.html options.js options.css \
-  icons/icon16.png icons/icon48.png icons/icon128.png LICENSE
+  icons/icon16.png icons/icon48.png icons/icon128.png icons/zureq-mark.svg LICENSE
 
 fail=0
 ok() { echo "  ✓ $1"; }
@@ -29,7 +29,7 @@ listing_has() { grep -qE "[[:space:]]$2\$" <<<"$1"; }
 
 listing="$(unzip -l "$ZIP")"
 echo "Verifying $ZIP:"
-for file in manifest.json background.js list.js loading.js autocompare.js watchlist.js sidepanel.html LICENSE; do
+for file in manifest.json background.js list.js loading.js autocompare.js watchlist.js sidepanel.html icons/zureq-mark.svg LICENSE; do
   listing_has "$listing" "$file" && ok "$file" || bad "missing $file"
 done
 listing_has "$listing" "test/" && bad "test/ must not ship" || ok "no test/"
