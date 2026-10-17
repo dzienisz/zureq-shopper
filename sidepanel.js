@@ -1,7 +1,8 @@
 import {
   TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool, chunkLines,
+  formatCredits,
   freshnessLabel, getCachedMarkets, getCachedShopInfo, getSearchHistory,
-  getShopInfo, locationArgs, normalizeMarkets, stockLabel
+  getShopInfo, isLowCredits, locationArgs, normalizeMarkets, stockLabel
 } from './zureq.js';
 import { groupListPicks, MAX_LIST_ITEMS, migrateListState, parseListInput } from './list.js';
 import { addWatch, clearAlerts, getWatches, removeWatch } from './watchlist.js';
@@ -11,13 +12,56 @@ const state = {
   products: [], details: new Map(), history: [], markets: [],
   selectedMarkets: [], sessionCredits: 0, source: null,
   list: { text: '', country: '', parts: [], running: false },
-  listGroups: []
+  listGroups: [],
+  usage: {
+    remaining: null, included: null, used: null, plan: '—', period: '—',
+    error: false, loading: false, noKey: false, lastFetchedAt: 0, open: false
+  }
 };
 let panelReady = false;
 let queuedPending = null;
 let handledPending = '';
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const productKey = (product) => `${product.shopId}::${product.sku}`;
+function renderUsageBadge() {
+  const usage = state.usage;
+  const badge = $('usage-toggle');
+  if (!badge) return;
+  const label = usage.noKey
+    ? 'Add key'
+    : usage.error
+      ? '—'
+      : Number.isFinite(usage.remaining)
+        ? `${formatCredits(usage.remaining)} left`
+        : usage.loading ? '…' : '—';
+  badge.textContent = label;
+  badge.setAttribute('aria-label', usage.noKey ? 'Add API key' : `Usage: ${label}`);
+  badge.setAttribute('aria-expanded', String(usage.open && !usage.noKey));
+  badge.classList.toggle('low-credit', !usage.noKey && !usage.error && isLowCredits(usage.remaining, usage.included));
+}
+function renderUsagePopover() {
+  const usage = state.usage;
+  $('usage-plan').textContent = usage.plan || '—';
+  $('usage-used-included').textContent = Number.isFinite(usage.used) && Number.isFinite(usage.included)
+    ? `${formatCredits(usage.used)} / ${formatCredits(usage.included)}`
+    : '—';
+  $('usage-period').textContent = usage.period || '—';
+  $('usage-session').textContent = `${formatCredits(state.sessionCredits)} credits`;
+  $('usage-error').classList.toggle('hidden', !usage.error);
+  renderUsageBadge();
+}
+function setUsagePopover(open) {
+  state.usage.open = Boolean(open && !state.usage.noKey);
+  $('usage-popover').classList.toggle('hidden', !state.usage.open);
+  renderUsageBadge();
+}
+function toggleUsagePopover() {
+  if (state.usage.noKey) {
+    chrome.runtime.openOptionsPage();
+    return;
+  }
+  setUsagePopover(!state.usage.open);
+}
 function decodeEntities(value) {
   const area = document.createElement('textarea');
   area.innerHTML = String(value ?? '');
@@ -37,9 +81,12 @@ function activeTab() {
   return document.querySelector('.tab.active')?.dataset.tab || 'search';
 }
 function showNoKey(missing) {
+  state.usage.noKey = Boolean(missing);
+  if (state.usage.noKey) setUsagePopover(false);
   $('no-key').classList.toggle('hidden', !missing);
   if (missing) document.querySelectorAll('main > .panel').forEach((panel) => panel.classList.add('hidden'));
-  else ['search', 'compare', 'list', 'watch', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== activeTab()));
+  else ['search', 'compare', 'list', 'watch'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== activeTab()));
+  renderUsageBadge();
 }
 function handleError(error) {
   if (error?.code === 'NO_KEY') {
@@ -50,7 +97,13 @@ function handleError(error) {
 }
 async function tool(name, args) {
   const data = await callTool(name, args);
-  state.sessionCredits += TOOL_COSTS[name] || 0;
+  const cost = TOOL_COSTS[name] || 0;
+  state.sessionCredits += cost;
+  if (cost > 0) {
+    if (Number.isFinite(state.usage.remaining)) state.usage.remaining = Math.max(0, state.usage.remaining - cost);
+    if (Number.isFinite(state.usage.used)) state.usage.used += cost;
+    renderUsagePopover();
+  }
   showNoKey(false);
   if ($('notice').classList.contains('error')) clearNotice();
   return data;
@@ -466,30 +519,69 @@ async function compare(event) {
     }).join('') + (data?.note ? `<p class="hint">${esc(data.note)}</p>` : '') : '<p class="hint">No comparison rows returned.</p>';
   } catch (error) { handleError(error); }
 }
-async function loadUsage() {
+async function refreshUsage(force = false) {
+  const usage = state.usage;
+  const now = Date.now();
+  if (usage.noKey || usage.loading || (!force && now - usage.lastFetchedAt < 60000)) return;
+  usage.loading = true;
+  usage.lastFetchedAt = now;
+  usage.error = false;
+  renderUsageBadge();
   try {
-    const usage = await tool('get_usage', {});
-    const used = Number(usage?.used ?? usage?.consumed ?? 0);
-    const included = Number(usage?.included ?? usage?.limit ?? 0);
-    const remaining = Number(usage?.remaining ?? Math.max(included - used, 0));
-    const percent = included ? Math.min(100, (used / included) * 100) : 0;
-    $('usage-results').innerHTML = `<div class="usage-numbers"><div class="usage-number"><strong>${esc(used)}</strong><span>Used</span></div><div class="usage-number"><strong>${esc(included)}</strong><span>Included</span></div><div class="usage-number"><strong>${esc(remaining)}</strong><span>Remaining</span></div></div><div class="progress"><span style="width:${percent}%"></span></div><p class="hint">Estimated this session: <strong>${state.sessionCredits} credits</strong></p>`;
-  } catch (error) { handleError(error); }
+    const result = await tool('get_usage', {});
+    const used = Number(result?.used);
+    const included = Number(result?.included);
+    const remaining = Number(result?.remaining ?? (included - used));
+    const period = String(result?.period || '—');
+    const unreported = period === usage.period && Number.isFinite(usage.used) && Number.isFinite(used)
+      ? Math.max(0, usage.used - used)
+      : 0;
+    usage.used = Number.isFinite(used) ? used + unreported : null;
+    usage.included = Number.isFinite(included) ? included : null;
+    usage.remaining = Number.isFinite(remaining) ? Math.max(0, remaining - unreported) : null;
+    usage.plan = String(result?.plan || '—');
+    usage.period = period;
+  } catch (error) {
+    usage.error = true;
+    usage.remaining = null;
+    usage.used = null;
+    usage.included = null;
+    usage.plan = '—';
+    usage.period = '—';
+    if (error?.code === 'NO_KEY') showNoKey(true);
+  } finally {
+    usage.loading = false;
+    renderUsagePopover();
+  }
 }
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach((button) => button.classList.toggle('active', button.dataset.tab === tab));
-  ['search', 'compare', 'list', 'watch', 'usage'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== tab));
-  if (tab === 'usage') loadUsage();
+  ['search', 'compare', 'list', 'watch'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== tab));
   if (tab === 'watch') {
     clearAlerts().then(() => chrome.runtime.sendMessage({ type: 'zureq-clear-badge' })).catch(() => {});
     renderWatches();
   }
 }
 document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => switchTab(button.dataset.tab)));
+document.addEventListener('click', (event) => {
+  if (!state.usage.open || event.target.closest('#usage-popover, #usage-toggle')) return;
+  setUsagePopover(false);
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || !state.usage.open) return;
+  setUsagePopover(false);
+  $('usage-toggle').focus();
+});
+function refreshUsageOnFocus() {
+  if (!document.hidden) refreshUsage(false);
+}
+window.addEventListener('focus', refreshUsageOnFocus);
+document.addEventListener('visibilitychange', refreshUsageOnFocus);
 $('search-form').addEventListener('submit', search);
 $('compare-form').addEventListener('submit', compare);
 $('sort').addEventListener('change', renderProducts);
-$('refresh-usage').addEventListener('click', loadUsage);
+$('usage-toggle').addEventListener('click', toggleUsagePopover);
+$('refresh-usage').addEventListener('click', () => refreshUsage(true));
 $('open-options').addEventListener('click', () => chrome.runtime.openOptionsPage());
 $('no-key-options').addEventListener('click', () => chrome.runtime.openOptionsPage());
 $('history').addEventListener('click', (event) => { const button = event.target.closest('.history-chip'); if (button) { $('query').value = button.dataset.query; search(event); } });
@@ -603,7 +695,19 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'sync' && changes.zureqApiKey) {
     const hasKey = Boolean(String(changes.zureqApiKey.newValue || '').trim());
     showNoKey(!hasKey);
-    if (hasKey) { clearNotice(); if (activeTab() === 'usage') loadUsage(); }
+    if (hasKey) {
+      clearNotice();
+      state.usage.error = false;
+      refreshUsage(true);
+    } else {
+      state.usage.remaining = null;
+      state.usage.included = null;
+      state.usage.used = null;
+      state.usage.plan = '—';
+      state.usage.period = '—';
+      state.usage.error = false;
+      renderUsagePopover();
+    }
     return;
   }
   if (!['session', 'local'].includes(areaName)) return;
@@ -624,8 +728,11 @@ async function init() {
   state.history = await getSearchHistory();
   renderHistory();
   try {
-    const settings = await chrome.storage.sync.get({ defaultCountry: '', defaultCurrency: 'PLN' });
+    const settings = await chrome.storage.sync.get({ defaultCountry: '', defaultCurrency: 'PLN', zureqApiKey: '' });
+    const hasKey = Boolean(String(settings.zureqApiKey || '').trim());
+    showNoKey(!hasKey);
     $('currency').value = settings.defaultCurrency || 'PLN';
+    if (hasKey) refreshUsage(true);
     await loadMarkets();
     $('list-country').innerHTML = $('country').innerHTML;
     if (settings.defaultCountry) $('country').value = settings.defaultCountry;
