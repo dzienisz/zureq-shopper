@@ -1,6 +1,7 @@
 import {
-  TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool,
-  getCachedMarkets, getSearchHistory, locationArgs, normalizeMarkets
+  TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool, chunkLines,
+  freshnessLabel, getCachedMarkets, getCachedShopInfo, getSearchHistory,
+  getShopInfo, locationArgs, normalizeMarkets, stockLabel
 } from './zureq.js';
 import { BUILD_TEMPLATES, partsForBuild } from './builds.js';
 import { languageModelStatus, resolveIntent, summarizeWithModel } from './assistant.js';
@@ -129,6 +130,33 @@ async function watchSearch() {
   });
   showNotice(`Watching “${query}”.`);
 }
+function detailsDescriptionHtml(details) {
+  return details.description
+    ? `<p class="detail-description">${esc(details.description)}</p><button type="button" class="description-toggle" data-action="description-toggle" aria-expanded="false">More</button>`
+    : '';
+}
+function detailsMetaHtml(details) {
+  const items = [`<span>${esc(stockLabel(details))}</span>`];
+  const freshness = freshnessLabel(details);
+  if (freshness) items.push(`<span class="freshness-chip">${esc(freshness)}</span>`);
+  if (/^https?:\/\//i.test(String(details.shopWebsite || ''))) {
+    items.push(`<a href="${esc(details.shopWebsite)}" target="_blank" rel="noopener">Visit shop</a>`);
+  }
+  return `<div class="details-meta">${items.join('<span class="details-separator" aria-hidden="true">·</span>')}</div>`;
+}
+function detailsHtml(details, sku = '') {
+  const variantSelect = details.variants?.length
+    ? `<label>Variant<select class="variant-select" ${sku ? `data-sku="${esc(sku)}"` : ''}>${details.variants.map((variant) => `<option value="${esc(variant.sku)}">${esc(variant.label || variant.name || variant.title || variant.sku)}</option>`).join('')}</select></label>`
+    : '';
+  return `<div class="details">${detailsDescriptionHtml(details)}${detailsMetaHtml(details)}${variantSelect}<div class="checkout-area"${sku ? ` data-checkout="${esc(sku)}"` : ''}></div></div>`;
+}
+function toggleDescription(button) {
+  const description = button.previousElementSibling;
+  if (!description?.classList.contains('detail-description')) return;
+  const expanded = description.classList.toggle('expanded');
+  button.textContent = expanded ? 'Less' : 'More';
+  button.setAttribute('aria-expanded', String(expanded));
+}
 function renderProducts() {
   const sort = $('sort').value;
   const products = [...state.products];
@@ -141,7 +169,7 @@ function renderProducts() {
     const cheaper = state.source && Number.isFinite(Number(state.source.price)) &&
       String(state.source.currency || '').toUpperCase() === String(product.currency || '').toUpperCase() &&
       Number(product.price) < Number(state.source.price);
-    const detailHtml = details ? `<div class="details">${details.description ? `<p>${esc(details.description)}</p>` : ''}${details.variants?.length ? `<label>Variant<select class="variant-select" data-sku="${esc(product.sku)}">${details.variants.map((variant) => `<option value="${esc(variant.sku)}">${esc(variant.label || variant.name || variant.title || variant.sku)}</option>`).join('')}</select></label>` : ''}<div class="checkout-area" data-checkout="${esc(product.sku)}"></div></div>` : '';
+    const detailHtml = details ? detailsHtml(details, product.sku) : '';
     return `<article class="card" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}">${image}<div><h3>${esc(decodeEntities(product.name))}</h3><div class="meta">${esc(product.shopName || product.shopId || 'Unknown shop')} · ${esc(product.category || 'General')}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}${cheaper ? ' <span class="cheaper">cheaper</span>' : ''}</div><div class="${product.inStock ? 'stock' : 'stock out'}">${product.inStock ? 'In stock' : 'Out of stock'}</div></div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout link</button><button data-action="watch">Watch</button></div>${detailHtml}</article>`;
   }).join('') : '<p class="hint">No products found. Try a broader query or another country.</p>';
   if (products.length) {
@@ -175,9 +203,13 @@ async function showDetails(card) {
     return;
   }
   try {
-    const details = await tool('get_product', { shopId: product.shopId, sku: product.sku });
-    state.details.set(key, details?.product || details);
-    if (card.dataset.assistant) renderAssistantDetails(card, details?.product || details);
+    const result = await tool('get_product', { shopId: product.shopId, sku: product.sku });
+    const details = result?.product || result;
+    let cachedShop = null;
+    try { cachedShop = await getCachedShopInfo(product.shopId); } catch {}
+    const productDetails = { ...details, shopWebsite: cachedShop?.website };
+    state.details.set(key, productDetails);
+    if (card.dataset.assistant) renderAssistantDetails(card, productDetails);
     else renderProducts();
   } catch (error) { handleError(error); }
 }
@@ -200,6 +232,12 @@ async function checkout(card) {
     return;
   }
   try {
+    const { info } = await getShopInfo(tool, product.shopId);
+    state.details.set(productKey(product), { ...details, shopWebsite: info.website });
+    if (info.checkoutLinkSupported === false) {
+      showNotice("This shop doesn't support checkout links — open the product on the shop instead.");
+      return;
+    }
     const data = await tool('create_checkout_link', { shopId: product.shopId, lines: [{ sku: variant || product.sku, quantity: 1 }] });
     const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
     const area = card.querySelector('.checkout-area') || card.querySelector('.details-slot');
@@ -377,27 +415,57 @@ async function buildCheckout(groupIndex) {
   if (!group) return;
   const button = document.querySelector(`.summary-group[data-group="${groupIndex}"] .build-checkout`);
   const target = button?.parentElement.querySelector('.build-link');
+  if (button) button.disabled = true;
   try {
-    const data = await tool('create_checkout_link', {
-      shopId: group.shopId,
-      lines: group.picks.map(({ candidate }) => ({ sku: candidate.sku, quantity: 1 }))
-    });
-    const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
-    if (target) target.innerHTML = url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>` : 'No checkout URL returned.';
-  } catch (error) {
-    if (error?.code !== 'API_ERROR' && error?.code !== 'INVALID_ARGS' || group.picks.length < 2) {
-      handleError(error);
+    const { info } = await getShopInfo(tool, group.shopId);
+    if (info.checkoutLinkSupported === false) {
+      if (target) target.textContent = "This shop doesn't support checkout links.";
       return;
     }
+    const chunks = chunkLines(group.picks, info.checkoutLinkMaxLines);
     const links = [];
-    for (const { part, candidate } of group.picks) {
+    for (let index = 0; index < chunks.length; index += 1) {
+      const chunk = chunks[index];
+      const label = `Cart ${index + 1} of ${chunks.length}`;
       try {
-        const data = await tool('create_checkout_link', { shopId: group.shopId, lines: [{ sku: candidate.sku, quantity: 1 }] });
+        const data = await tool('create_checkout_link', {
+          shopId: group.shopId,
+          lines: chunk.map(({ candidate }) => ({ sku: candidate.sku, quantity: 1 }))
+        });
         const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
-        if (url) links.push(`<li>${esc(part.name)}: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></li>`);
-      } catch (itemError) { handleError(itemError); }
+        links.push(url
+          ? `<p><strong>${label}</strong>: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></p>`
+          : `<p><strong>${label}</strong>: No checkout URL returned.</p>`);
+      } catch (chunkError) {
+        const itemLinks = [];
+        if (chunk.length === 1) {
+          const [{ part }] = chunk;
+          itemLinks.push(`<li>${esc(part.name)}: ${esc(chunkError?.message || 'Could not create checkout link.')}</li>`);
+        } else {
+          for (const { part, candidate } of chunk) {
+            try {
+              const data = await tool('create_checkout_link', {
+                shopId: group.shopId,
+                lines: [{ sku: candidate.sku, quantity: 1 }]
+              });
+              const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
+              itemLinks.push(url
+                ? `<li>${esc(part.name)}: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></li>`
+                : `<li>${esc(part.name)}: No checkout URL returned.</li>`);
+            } catch (itemError) {
+              itemLinks.push(`<li>${esc(part.name)}: ${esc(itemError?.message || chunkError?.message || 'Could not create checkout link.')}</li>`);
+            }
+          }
+        }
+        links.push(`<div><strong>${label}</strong><ul>${itemLinks.join('')}</ul></div>`);
+      }
     }
-    if (target) target.innerHTML = `<p class="hint">This shop takes one product per link.</p><ul>${links.join('')}</ul>`;
+    if (target) target.innerHTML = links.join('');
+  } catch (error) {
+    if (target) target.textContent = error?.message || 'Could not check shop checkout support.';
+    handleError(error);
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 
@@ -450,7 +518,7 @@ function renderAssistantDetails(card, details) {
     slot.innerHTML = '';
     return;
   }
-  slot.innerHTML = `<div class="details">${details.description ? `<p>${esc(details.description)}</p>` : ''}${details.variants?.length ? `<label>Variant<select class="variant-select">${details.variants.map((variant) => `<option value="${esc(variant.sku)}">${esc(variant.label || variant.name || variant.title || variant.sku)}</option>`).join('')}</select></label>` : ''}<div class="checkout-area"></div></div>`;
+  slot.innerHTML = detailsHtml(details);
 }
 
 function appendAssistantMessage(html, cost = 0, user = false) {
@@ -561,6 +629,10 @@ $('history').addEventListener('click', (event) => { const button = event.target.
 $('search-results').addEventListener('click', (event) => {
   const button = event.target.closest('[data-action]');
   if (!button) return;
+  if (button.dataset.action === 'description-toggle') {
+    toggleDescription(button);
+    return;
+  }
   const card = button.closest('.card');
   if (button.dataset.action === 'watch') {
     watchProduct(productFromCard(card));
@@ -580,6 +652,10 @@ $('assistant-messages').addEventListener('click', (event) => {
   if (!button) return;
   const card = button.closest('.assistant-product');
   if (!card) return;
+  if (button.dataset.action === 'description-toggle') {
+    toggleDescription(button);
+    return;
+  }
   if (button.dataset.action === 'watch') {
     watchProduct(productFromCard(card));
     return;

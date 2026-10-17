@@ -8,13 +8,13 @@ ZUREQ Shopper is a small, zero-build Chrome extension for finding products, comp
 2. Open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**.
 3. Select this repository directory, open the extension's **Options**, and save your key.
 
-The extension stores the key in Chrome sync storage and only contacts `api.zureq.io`. Search history and the 24-hour market list cache are stored locally.
+The extension stores the key in Chrome sync storage and only contacts `api.zureq.io`. Search history and 24-hour market-list and shop-info caches are stored locally.
 
 ## Features
 
 - Search products by country, price, stock, and result limit.
-- Inspect product details and variants.
-- Create and open checkout links.
+- Inspect product details and variants, including stock and freshness; expand long descriptions and visit shops already in cache.
+- Create checkout links for supported shops; Build splits carts to the shop's line limit and falls back to per-item links when a cart fails.
 - Compare 2–4 markets in a selected currency.
 - Search selected page text from the context menu.
 - View current API usage and this session's estimated credit spend.
@@ -45,8 +45,11 @@ The extension stores the key in Chrome sync storage and only contacts `api.zureq
 | `compare_markets` | 6 |
 | `get_product` | 1 |
 | `create_checkout_link` | 1 |
-| `get_shop`, `list_shops`, `list_categories` | 1 |
+| `get_shop` | 1 (cached per shop for 24 hours) |
+| `list_shops`, `list_categories` | 1 |
 | `list_markets`, `get_usage` | Free |
+
+Checkout checks shop support with `get_shop` before creating a link. Cached shop metadata adds no credit; unsupported shops show a notice instead.
 
 ## Development
 
