@@ -17,9 +17,8 @@
   <nav class="tabs" aria-label="Main views">
     <button class="tab active" data-tab="search">Search</button>
     <button class="tab" data-tab="compare">Compare</button>
-    <button class="tab" data-tab="build">Build</button>
+    <button class="tab" data-tab="list">List</button>
     <button class="tab" data-tab="watch">Watch</button>
-    <button class="tab" data-tab="assistant">Assistant</button>
     <button class="tab" data-tab="usage">Usage</button>
   </nav>
   <main>
@@ -60,33 +59,20 @@
       <div id="compare-results"></div>
     </section>
 
-    <section id="build-panel" class="panel hidden">
-      <div class="section-heading"><div><p class="eyebrow">PROJECT</p><h2>Build parts list</h2></div><button id="clear-build" class="secondary">Clear</button></div>
-      <label>What are you building?<textarea id="build-input" rows="3" placeholder="An FPV drone, gaming PC, or your own comma-separated list"></textarea></label>
-      <div id="build-presets" class="chips build-presets"></div>
-      <details class="import-build"><summary>Import a shared build</summary><textarea id="import-code" rows="2" placeholder="Paste a share link or code"></textarea><button class="secondary" id="import-build" type="button">Import</button></details>
-      <div class="form-row between"><label>Country<select id="build-country"></select></label><div id="build-estimate" class="estimate">Plan a build to begin.</div></div>
-      <button class="primary full" id="plan-build" type="button">Plan parts</button>
-      <div id="build-parts"></div>
-      <div id="build-actions" class="hidden"><p id="build-run-status" class="hint"></p><button class="primary full" id="search-build" type="button">Search all included</button><label class="shipping-label">Est. shipping per shop<input id="shipping-per-shop" type="number" min="0" step="1" value="15"></label><button class="secondary full" id="optimize-build" type="button" disabled>Optimize cart (fewest shops)</button><p id="optimize-result" class="hint"></p></div>
-      <div id="build-summary"></div>
+    <section id="list-panel" class="panel hidden">
+      <div class="section-heading"><div><p class="eyebrow">SHOPPING LIST</p><h2>Shopping list</h2></div><button id="clear-list" class="secondary">Clear</button></div>
+      <label>Items<textarea id="list-input" rows="3" placeholder="One item per line or comma-separated"></textarea></label>
+      <div class="form-row between"><label>Country<select id="list-country"></select></label><div id="list-estimate" class="estimate">0 items · ~0 credits</div></div>
+      <p id="list-run-status" class="hint">Enter up to 10 items.</p>
+      <button class="primary full" id="search-list" type="button" disabled>Search all</button>
+      <div id="list-parts"></div>
+      <div id="list-summary"></div>
     </section>
 
     <section id="watch-panel" class="panel hidden">
       <div class="section-heading"><div><p class="eyebrow">PRICE ALERTS</p><h2>Price alerts / Watchlist</h2></div><button id="check-watches" class="secondary">Check now</button></div>
       <p id="watch-hint" class="hint">Checks run every 24 h in the background (~3 credits per watch). Change the interval in Options.</p>
       <div id="watch-list"></div>
-    </section>
-
-    <section id="assistant-panel" class="panel hidden">
-      <div class="section-heading"><div><p class="eyebrow">SHOPPING ASSISTANT</p><h2>Ask Zureq</h2></div><span id="ai-status" class="ai-status">on-device AI: off</span></div>
-      <div id="assistant-messages" class="assistant-messages"></div>
-      <div id="assistant-suggestions" class="chips">
-        <button class="chip suggestion">Parts for an FPV drone</button>
-        <button class="chip suggestion">Compare "DJI Mini 4" in PL and DE</button>
-        <button class="chip suggestion">How many credits left?</button>
-      </div>
-      <form id="assistant-form" class="assistant-form"><input id="assistant-input" placeholder="Ask about products, markets, or a build…" autocomplete="off"><button class="primary" type="submit">Send</button></form>
     </section>
 
     <section id="usage-panel" class="panel hidden">

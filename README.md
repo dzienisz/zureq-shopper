@@ -14,7 +14,7 @@ The extension stores the key in Chrome sync storage and only contacts `api.zureq
 
 - Search products by country, price, stock, and result limit.
 - Inspect product details and variants, including stock and freshness; expand long descriptions and visit shops already in cache.
-- Create checkout links for supported shops; Build splits carts to the shop's line limit and falls back to per-item links when a cart fails.
+- Create checkout links for supported shops; List splits carts to each shop's line limit and falls back to per-item links when a cart fails.
 - Compare 2–4 markets in a selected currency.
 - Search selected page text from the context menu.
 - View current API usage and this session's estimated credit spend.
@@ -22,11 +22,7 @@ The extension stores the key in Chrome sync storage and only contacts `api.zureq
 
 ## New shopping tools
 
-- **Build** turns an FPV drone, camera drone, 3D printer, gaming PC, or home-office idea into a searchable parts checklist. Custom comma-separated lists are supported too.
-- **Cart optimizer** can consolidate selected build parts into fewer shops using an estimated per-shop shipping cost.
-- **Build sharing** exports a plan as Markdown or a link and imports shared plans without candidate search results.
-  Shared links use a stable GitHub URL; recipients paste them into Build → Import a shared build.
-- **Assistant** provides a lightweight chat interface for product search, market comparison, usage questions, and build handoffs, with optional on-device Prompt API summaries.
+- **List** searches up to 10 products, shows up to five candidates per item, and groups selected products by shop with item totals and checkout links.
 - **Shop pages** on Allegro.pl, Amazon, Ceneo, eBay, x-kom.pl, and MediaExpert.pl get a “Find on Zureq network” button; optionally enable a cached inline “Cheaper on Zureq” check in Options.
 
 ## Ideas implemented
@@ -49,7 +45,7 @@ The extension stores the key in Chrome sync storage and only contacts `api.zureq
 | `list_shops`, `list_categories` | 1 |
 | `list_markets`, `get_usage` | Free |
 
-Checkout checks shop support with `get_shop` before creating a link. Cached shop metadata adds no credit; unsupported shops show a notice instead.
+Each List search costs 3 credits per item. Checkout checks shop support with `get_shop` before creating links; shop metadata is cached per shop for 24 hours. Each checkout-link request costs 1 credit, and cart links respect each shop's line limit.
 
 ## Development
 
@@ -62,8 +58,6 @@ npm test
 ```
 
 To try the extension, open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**, selecting this repository directory.
-
-The optional Chrome Prompt API is available on Chrome 138+ when Gemini Nano is installed. It is only used on-device to improve intent parsing and summaries; the extension always has a rule-based fallback.
 
 ## Release
 

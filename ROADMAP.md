@@ -3,9 +3,11 @@
 ## Planned for 1.1
 
 - [Done] Price alerts / watchlist.
-- [Done] Multi-item cart optimizer.
 - [Done] More shop integrations + inline price badge: Ceneo, eBay, x-kom, MediaExpert.
-- [Done] Share a build as link/Markdown.
+
+## Removed in 1.3
+
+- Build presets and project planning, cart optimization, build sharing, and the Assistant with its optional on-device Prompt API were removed to focus on core shopping workflows.
 
 ## Ideas
 
