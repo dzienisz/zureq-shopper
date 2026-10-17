@@ -48,6 +48,10 @@ export function locationArgs(code) {
   return location === 'EU' ? { region: 'EU' } : { country: location };
 }
 
+export function checkoutSku(pick) {
+  return pick?.variantSku || pick?.sku;
+}
+
 export function normalizeMarkets(data) {
   const list = data?.markets || data?.countries || data?.items || (Array.isArray(data) ? data : []);
   return list.map((item) => {
