@@ -1,4 +1,4 @@
-import { callTool } from './zureq.js';
+import { callTool, locationArgs } from './zureq.js';
 import { checkWatchlist, WATCH_ALARM, WATCH_INTERVALS } from './watchlist.js';
 import { cacheKey, getCached, pickBest, putCached } from './autocompare.js';
 
@@ -61,7 +61,7 @@ async function autoCompare(message) {
     request = (async () => {
       const data = await callTool('search_products', {
         query: message.query,
-        country: country || undefined,
+        ...locationArgs(country),
         inStockOnly: true,
         limit: 5
       });

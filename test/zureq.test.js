@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addSearchHistory, callTool, mapApiError, parseToolResponse, ZureqError } from '../zureq.js';
+import { addSearchHistory, callTool, locationArgs, mapApiError, parseToolResponse, ZureqError } from '../zureq.js';
+
+test('maps country codes and regions to search location arguments', () => {
+  assert.deepEqual(locationArgs(''), {});
+  assert.deepEqual(locationArgs('EU'), { region: 'EU' });
+  assert.deepEqual(locationArgs('eu'), { region: 'EU' });
+  assert.deepEqual(locationArgs('pl'), { country: 'PL' });
+});
 
 test('maps known API errors to friendly codes and messages', () => {
   const error = mapApiError({ code: -32003, message: 'credits' });
@@ -43,7 +50,14 @@ test('calls the MCP endpoint with a key from fake Chrome storage', async () => {
 test('surfaces error responses returned as tool text', () => {
   assert.throws(
     () => parseToolResponse({ result: { isError: true, content: [{ type: 'text', text: '{"error":"timed out"}' }] } }),
-    (error) => error.code === 'API_ERROR' && /timed out/.test(error.message)
+    (error) => error.code === 'API_ERROR' && error.message === 'timed out'
+  );
+});
+
+test('surfaces non-JSON error responses returned as tool text', () => {
+  assert.throws(
+    () => parseToolResponse({ result: { isError: true, content: [{ type: 'text', text: 'Service unavailable' }] } }),
+    (error) => error.code === 'API_ERROR' && error.message === 'Service unavailable'
   );
 });
 

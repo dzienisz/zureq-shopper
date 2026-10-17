@@ -29,6 +29,30 @@ const ERROR_MESSAGES = {
   '-32602': ['INVALID_ARGS', 'The request was not accepted. Check the search fields.']
 };
 
+export function locationArgs(code) {
+  const location = String(code || '').trim().toUpperCase();
+  if (!location) return {};
+  return location === 'EU' ? { region: 'EU' } : { country: location };
+}
+
+export function normalizeMarkets(data) {
+  const list = data?.markets || data?.countries || data?.items || (Array.isArray(data) ? data : []);
+  return list.map((item) => {
+    const code = typeof item === 'string' ? item : item.code || item.isoCode || item.country || item.market || item.id;
+    if (!code) return null;
+    const normalizedCode = String(code).toUpperCase();
+    let label = normalizedCode;
+    try {
+      label = new Intl.DisplayNames(['en'], { type: 'region' }).of(normalizedCode) || normalizedCode;
+    } catch {}
+    return {
+      code: normalizedCode,
+      label,
+      count: typeof item === 'string' ? undefined : item.count ?? item.shops
+    };
+  }).filter(Boolean);
+}
+
 export function mapApiError(error) {
   const code = String(error?.code ?? 'UNKNOWN');
   const [friendlyCode, message] = ERROR_MESSAGES[code] || ['API_ERROR', error?.message || 'Zureq returned an unexpected error.'];
@@ -42,19 +66,21 @@ export function parseToolResponse(payload) {
   if (payload.error) throw mapApiError(payload.error);
   const result = payload.result;
   if (!result) throw new ZureqError('PARSE_ERROR', 'Zureq returned no result.');
-  if (result.structuredContent !== undefined) return result.structuredContent;
+  const structuredContent = result.structuredContent;
   const text = result.content?.find((item) => item.type === 'text')?.text;
   if (text) {
+    let parsed;
     try {
-      const parsed = JSON.parse(text);
-      if (result.isError || parsed?.error) throw new ZureqError('API_ERROR', parsed.error || 'Zureq returned an error.');
-      return parsed;
+      parsed = JSON.parse(text);
     } catch {
       if (result.isError) throw new ZureqError('API_ERROR', text);
-      return text;
+      return structuredContent !== undefined ? structuredContent : text;
     }
+    if (result.isError || parsed?.error) throw new ZureqError('API_ERROR', parsed?.error || text);
+    return structuredContent !== undefined ? structuredContent : parsed;
   }
   if (result.isError) throw new ZureqError('API_ERROR', 'Zureq returned an error.');
+  if (structuredContent !== undefined) return structuredContent;
   return result;
 }
 
