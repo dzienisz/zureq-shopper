@@ -1,5 +1,18 @@
 export const AUTO_COMPARE_TTL = 6 * 60 * 60 * 1000;
 
+export function marketForSite(site, defaultCountry = '') {
+  const host = String(site || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .split(/[/:?#]/, 1)[0]
+    .replace(/^www\./, '');
+  if (['allegro.pl', 'ceneo.pl', 'x-kom.pl', 'mediaexpert.pl', 'amazon.pl', 'ebay.pl'].includes(host)) return 'PL';
+  if (['amazon.com', 'ebay.com'].includes(host)) return 'US';
+  if (['amazon.de', 'ebay.de'].includes(host)) return 'EU';
+  return String(defaultCountry || '').trim().toUpperCase();
+}
+
 export function cacheKey(country, query) {
   return `v2:${country || ''}|${String(query || '').toLowerCase()}`;
 }

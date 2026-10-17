@@ -1,6 +1,6 @@
 import { callTool, locationArgs } from './zureq.js';
 import { checkWatchlist, WATCH_ALARM, WATCH_INTERVALS } from './watchlist.js';
-import { cacheKey, getCached, pickBest, putCached } from './autocompare.js';
+import { cacheKey, getCached, marketForSite, pickBest, putCached } from './autocompare.js';
 
 const autoCompareInFlight = new Map();
 let autoCompareWrite = Promise.resolve();
@@ -50,7 +50,7 @@ async function runWatchCheck() {
 
 async function autoCompare(message) {
   const settings = await chrome.storage.sync.get({ defaultCountry: '' });
-  const country = settings.defaultCountry || '';
+  const country = marketForSite(message.source?.site, settings.defaultCountry);
   const key = cacheKey(country, message.query);
   const stored = await chrome.storage.local.get({ zureqAutoCompareCache: {} });
   const cache = stored.zureqAutoCompareCache || {};
@@ -129,14 +129,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
   if (message?.type !== 'zureq-search' || !sender.tab?.id || !message.query) return false;
-  const pending = {
-    query: String(message.query).trim(),
-    mode: 'search',
-    source: message.source || null,
-    tabId: sender.tab.id,
-    createdAt: Date.now()
-  };
-  savePendingAndOpen(pending, sender.tab.id)
+  chrome.storage.sync.get({ defaultCountry: '' }).then((settings) => {
+    const pending = {
+      query: String(message.query).trim(),
+      mode: 'search',
+      source: message.source || null,
+      country: marketForSite(message.source?.site, settings.defaultCountry),
+      tabId: sender.tab.id,
+      createdAt: Date.now()
+    };
+    return savePendingAndOpen(pending, sender.tab.id);
+  })
     .then(() => sendResponse({ ok: true }))
     .catch(() => sendResponse({ ok: false }));
   return true;

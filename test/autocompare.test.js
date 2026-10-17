@@ -1,12 +1,31 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AUTO_COMPARE_TTL, cacheKey, getCached, pickBest, putCached } from '../autocompare.js';
+import { AUTO_COMPARE_TTL, cacheKey, getCached, marketForSite, pickBest, putCached } from '../autocompare.js';
+import { locationArgs } from '../zureq.js';
 
 const product = (price, currency = 'PLN') => ({
   name: `Product ${price}`,
   price,
   currency,
   shopName: 'Shop'
+});
+
+test('maps supported Polish shop pages to Poland', () => {
+  for (const site of ['allegro.pl', 'www.ceneo.pl', 'x-kom.pl', 'mediaexpert.pl', 'amazon.pl', 'www.ebay.pl']) {
+    assert.equal(marketForSite(site, 'DE'), 'PL');
+  }
+});
+
+test('maps US and German shop pages to country and region filters', () => {
+  assert.deepEqual(locationArgs(marketForSite('www.amazon.com', 'PL')), { country: 'US' });
+  assert.deepEqual(locationArgs(marketForSite('https://www.ebay.com/itm/1', 'PL')), { country: 'US' });
+  assert.deepEqual(locationArgs(marketForSite('amazon.de', 'PL')), { region: 'EU' });
+  assert.deepEqual(locationArgs(marketForSite('www.ebay.de', 'PL')), { region: 'EU' });
+});
+
+test('uses the default country for other shop markets', () => {
+  assert.equal(marketForSite('amazon.co.uk', 'DE'), 'DE');
+  assert.equal(marketForSite('example.com', ''), '');
 });
 
 test('pickBest filters currency and reports cheaper offers', () => {
