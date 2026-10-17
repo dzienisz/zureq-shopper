@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   addSearchHistory, callTool, checkoutSku, chunkLines, formatCredits, freshnessLabel, getCachedShopInfo,
-  getShopInfo, locationArgs, mapApiError, normalizeMarkets, parseToolResponse,
+  getShopInfo, locationArgs, mapApiError, normalizeMarkets, parseMaxPrice, parseToolResponse,
   isLowCredits, stockLabel, ZureqError
 } from '../zureq.js';
 
@@ -28,6 +28,15 @@ test('maps country codes and regions to search location arguments', () => {
   assert.deepEqual(locationArgs('EU'), { region: 'EU' });
   assert.deepEqual(locationArgs('eu'), { region: 'EU' });
   assert.deepEqual(locationArgs('pl'), { country: 'PL' });
+});
+
+test('parses max price as empty, positive finite, or invalid', () => {
+  assert.deepEqual(parseMaxPrice(''), { value: undefined });
+  assert.deepEqual(parseMaxPrice('  '), { value: undefined });
+  assert.deepEqual(parseMaxPrice('12.5'), { value: 12.5 });
+  for (const raw of ['0', '-1', 'NaN', 'Infinity']) {
+    assert.deepEqual(parseMaxPrice(raw), { error: 'Max price must be greater than 0.' });
+  }
 });
 
 test('uses the selected variant SKU for checkout', () => {
@@ -84,6 +93,27 @@ test('calls the MCP endpoint with a key from fake Chrome storage', async () => {
   assert.equal(request.params.arguments.constructor, Object);
   delete globalThis.chrome;
   delete globalThis.fetch;
+});
+
+test('uses an API-key override without reading Chrome storage', async () => {
+  let storageCalls = 0;
+  let authorization;
+  globalThis.chrome = {
+    storage: {
+      sync: {
+        get: async () => { storageCalls += 1; },
+        set: async () => { storageCalls += 1; }
+      }
+    }
+  };
+  globalThis.fetch = async (_url, options) => {
+    authorization = options.headers.Authorization;
+    return { json: async () => ({ result: { structuredContent: { remaining: 4 } } }) };
+  };
+
+  assert.deepEqual(await callTool('get_usage', {}, { apiKey: 'typed-test-key' }), { remaining: 4 });
+  assert.equal(authorization, 'Bearer typed-test-key');
+  assert.equal(storageCalls, 0);
 });
 
 test('surfaces error responses returned as tool text', () => {
