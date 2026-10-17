@@ -66,13 +66,18 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #
 .market-chip:has(input:checked) { color: var(--accent); border-color: #9dbded; background: #edf4ff; }
 .card { border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin: 9px 0; display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 10px; }
 .product-image { width: 58px; height: 58px; border-radius: 8px; background: var(--soft); object-fit: cover; }
-.card h3 { margin: 0 0 3px; font-size: 13px; line-height: 1.25; }
+.image-placeholder { display: grid; place-items: center; background: var(--soft); color: var(--muted); font-size: 20px; font-weight: 800; }
+.product-copy { min-width: 0; }
+.card h3 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 0 0 3px; font-size: 13px; line-height: 1.25; }
 .meta { color: var(--muted); font-size: 11px; }
-.price { color: var(--ink); font-weight: 800; margin-top: 5px; }
+.product-shop { color: var(--muted); font-size: 11px; }
+.price { color: var(--ink); font-size: 16px; font-weight: 800; line-height: 1.25; margin-top: 5px; }
 .stock { color: #19804a; font-size: 10px; font-weight: 700; }
 .out { color: var(--danger); }
-.card-actions { grid-column: 1 / -1; display: flex; gap: 6px; }
+.stock-chip { display: inline-flex; align-items: center; margin-top: 4px; padding: 2px 6px; border-radius: 20px; background: #fff0f1; color: var(--danger); font-size: 10px; font-weight: 700; white-space: nowrap; }
+.card-actions { grid-column: 1 / -1; display: flex; flex-wrap: nowrap; gap: 6px; }
 .card-actions button, .secondary { border: 1px solid var(--line); background: #fff; color: var(--accent); border-radius: 7px; padding: 6px 9px; font-weight: 700; font-size: 11px; }
+.card-actions button { flex: 1 1 0; min-width: 0; padding: 6px 4px; white-space: nowrap; }
 .primary { border: 0; border-radius: 8px; background: var(--accent); color: #fff; padding: 10px 14px; font-weight: 800; }
 .primary:hover { background: var(--accent-dark); }
 .full { width: 100%; margin-top: 14px; }
@@ -111,6 +116,10 @@ legend { margin-bottom: 8px; }
 .market-result h3 { margin: 0 0 6px; font-size: 14px; }
 .market-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 11px; }
 .market-result ul { margin: 8px 0 0; padding-left: 17px; color: var(--muted); font-size: 11px; }
+.compare-offer { display: flex; align-items: center; gap: 8px; }
+.compare-image { width: 36px; height: 36px; flex: 0 0 36px; border-radius: 6px; background: var(--soft); object-fit: cover; }
+.compare-image.image-placeholder { font-size: 14px; }
+.compare-offer-copy { min-width: 0; overflow-wrap: anywhere; }
 .notice { border-radius: 8px; padding: 9px 10px; margin-bottom: 12px; background: #fff4dc; color: #815700; line-height: 1.35; }
 .source-banner { border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; background: #edf4ff; color: #24528c; font-size: 11px; line-height: 1.35; }
 .watch-item { border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin: 9px 0; }
@@ -129,5 +138,5 @@ legend { margin-bottom: 8px; }
   main { padding-left: 12px; padding-right: 12px; }
   .tabs { padding-right: 6px; padding-left: 6px; }
   .tab { padding-right: 4px; padding-left: 4px; font-size: 12px; letter-spacing: -.025em; }
-  .form-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 54px; gap: 6px; }
+  .form-grid { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 62px; gap: 6px; }
 }

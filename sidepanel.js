@@ -23,6 +23,45 @@ let queuedPending = null;
 let handledPending = '';
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const productKey = (product) => `${product.shopId}::${product.sku}`;
+function imageCandidates(item) {
+  return [
+    item?.imageUrl, item?.image_url, item?.image, item?.thumbnailUrl,
+    item?.thumbnail_url, item?.thumbnail, Array.isArray(item?.images) ? item.images[0] : null
+  ];
+}
+function imageUrl(item) {
+  for (const candidate of imageCandidates(item)) {
+    if (typeof candidate !== 'string' || !candidate.trim()) continue;
+    try {
+      const url = new URL(candidate.trim());
+      if (url.protocol === 'http:' || url.protocol === 'https:') return url.href;
+    } catch {}
+  }
+  return '';
+}
+function imageMarkup(item, shopName, className, placeholderWhenMissing = false) {
+  const shop = String(shopName || 'Shop').trim() || 'Shop';
+  const initial = [...shop][0].toLocaleUpperCase('en-US');
+  const url = imageUrl(item);
+  const candidates = imageCandidates(item);
+  const hasImage = candidates.some((candidate) => typeof candidate === 'string' && candidate.trim());
+  if (!url) {
+    return placeholderWhenMissing || hasImage
+      ? `<div class="${className} image-placeholder" role="img" aria-label="No image for ${esc(shop)}">${esc(initial)}</div>`
+      : '';
+  }
+  return `<img class="${className} fallback-image" src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-placeholder="${esc(initial)}" data-shop-name="${esc(shop)}">`;
+}
+document.addEventListener('error', (event) => {
+  const image = event.target;
+  if (!(image instanceof HTMLImageElement) || !image.classList.contains('fallback-image')) return;
+  const placeholder = document.createElement('div');
+  placeholder.className = `${image.className.replace(/\bfallback-image\b/, '')} image-placeholder`.trim();
+  placeholder.setAttribute('role', 'img');
+  placeholder.setAttribute('aria-label', `No image for ${image.dataset.shopName || 'shop'}`);
+  placeholder.textContent = image.dataset.placeholder || 'S';
+  image.replaceWith(placeholder);
+}, true);
 function renderUsageBadge() {
   const usage = state.usage;
   const badge = $('usage-toggle');
@@ -216,12 +255,14 @@ function renderProducts() {
   $('search-results').innerHTML = products.length ? products.map((product) => {
     const key = productKey(product);
     const details = state.details.get(key);
-    const image = product.imageUrl ? `<img class="product-image" src="${esc(product.imageUrl)}" alt="">` : '<div class="product-image"></div>';
+    const shopName = product.shopName || product.shopId || 'Unknown shop';
+    const image = imageMarkup(product, shopName, 'product-image', true);
     const cheaper = state.source && Number.isFinite(Number(state.source.price)) &&
       String(state.source.currency || '').toUpperCase() === String(product.currency || '').toUpperCase() &&
       Number(product.price) < Number(state.source.price);
     const detailHtml = details ? detailsHtml(details, product.sku) : '';
-    return `<article class="card" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}">${image}<div><h3>${esc(decodeEntities(product.name))}</h3><div class="meta">${esc(product.shopName || product.shopId || 'Unknown shop')} · ${esc(product.category || 'General')}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}${cheaper ? ' <span class="cheaper">cheaper</span>' : ''}</div><div class="${product.inStock ? 'stock' : 'stock out'}">${product.inStock ? 'In stock' : 'Out of stock'}</div></div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout link</button><button data-action="watch">Watch</button></div>${detailHtml}</article>`;
+    const outOfStock = product.inStock === false ? '<span class="stock-chip">Out of stock</span>' : '';
+    return `<article class="card" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}">${image}<div class="product-copy"><h3>${esc(decodeEntities(product.name))}</h3><div class="product-shop">${esc(shopName)}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}${cheaper ? ' <span class="cheaper">cheaper</span>' : ''}</div>${outOfStock}</div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout</button><button data-action="watch">Watch</button></div>${detailHtml}</article>`;
   }).join('') : '<p class="hint">No products found. Try a broader query or another country.</p>';
   if (products.length) {
     $('search-results').insertAdjacentHTML('afterbegin', '<div class="watch-search-row"><button data-action="watch-search">Watch this search</button></div>');
@@ -268,7 +309,7 @@ async function checkout(card) {
   const details = state.details.get(productKey(product));
   if (!details) {
     await showDetails(card);
-    showNotice('Choose a variant if this product has one, then click Checkout link.');
+    showNotice('Choose a variant if this product has one, then click Checkout.');
     return;
   }
   const variant = card.querySelector('.variant-select')?.value;
@@ -515,7 +556,7 @@ async function compare(event) {
       const priceOf = (offer) => offer.approxPrice != null
         ? `≈ ${esc(offer.approxPrice)} ${esc(offer.approxCurrency || targetCurrency)} <span class="muted">(${esc(offer.price)} ${esc(offer.currency || '')})</span>`
         : `${esc(offer.price ?? offer.convertedPrice ?? '')} ${esc(offer.currency || targetCurrency)}`;
-      return `<article class="market-result"><h3>${esc(name)}</h3><div class="market-stats">${stats.map((stat) => esc(stat)).join(' · ') || 'Market results'}</div>${delivery ? `<p class="hint">${esc(delivery)}</p>` : ''}${candidates.length ? `<ul>${candidates.slice(0, 5).map((offer) => `<li>${esc(decodeEntities(offer.name || offer.productName || 'Offer'))} <span class="muted">· ${esc(offer.shopName || offer.shopId || '')}</span> — ${priceOf(offer)}</li>`).join('')}</ul>` : '<p class="hint">No offers returned.</p>'}</article>`;
+      return `<article class="market-result"><h3>${esc(name)}</h3><div class="market-stats">${stats.map((stat) => esc(stat)).join(' · ') || 'Market results'}</div>${delivery ? `<p class="hint">${esc(delivery)}</p>` : ''}${candidates.length ? `<ul>${candidates.slice(0, 5).map((offer) => `<li class="compare-offer">${imageMarkup(offer, offer.shopName || offer.shopId || 'Shop', 'compare-image')}<span class="compare-offer-copy">${esc(decodeEntities(offer.name || offer.productName || 'Offer'))} <span class="muted">· ${esc(offer.shopName || offer.shopId || '')}</span> — ${priceOf(offer)}</span></li>`).join('')}</ul>` : '<p class="hint">No offers returned.</p>'}</article>`;
     }).join('') + (data?.note ? `<p class="hint">${esc(data.note)}</p>` : '') : '<p class="hint">No comparison rows returned.</p>';
   } catch (error) { handleError(error); }
 }
@@ -681,6 +722,7 @@ async function applyPending(pending) {
     if (state.selectedMarkets.length >= 2) await compare({ preventDefault() {} });
   } else {
     switchTab('search');
+    if (pending.country != null) $('country').value = pending.country;
     state.source = pending.source || null;
     const source = state.source;
     $('source-banner').classList.toggle('hidden', !source);
