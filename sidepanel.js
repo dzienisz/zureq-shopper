@@ -163,7 +163,7 @@ async function loadMarkets() {
   renderMarketChips();
 }
 function renderHistory() {
-  $('history').innerHTML = state.history.length ? `<span class="muted">Recent</span>${state.history.slice(0, 6).map((query) => `<button class="chip history-chip" data-query="${esc(query)}">${esc(query)}</button>`).join('')}` : '';
+  $('history').innerHTML = state.history.length ? `<span class="muted">Recent</span>${state.history.slice(0, 6).map((query) => `<button class="chip history-chip" data-query="${esc(query)}" title="${esc(query)}">${esc(query)}</button>`).join('')}` : '';
 }
 function renderMarketChips() {
   const all = [{ code: 'EU', label: 'EU' }, { code: 'WORLD', label: 'World' }, ...state.markets.filter((market) => !['EU', 'WORLD'].includes(market.code))];
