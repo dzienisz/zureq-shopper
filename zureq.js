@@ -13,6 +13,19 @@ export const TOOL_COSTS = Object.freeze({
   get_usage: 0
 });
 
+export function formatCredits(value) {
+  if (value == null || value === '') return '—';
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '—';
+}
+
+export function isLowCredits(remaining, included) {
+  if (remaining == null || remaining === '' || included == null || included === '') return false;
+  const left = Number(remaining);
+  const total = Number(included);
+  return Number.isFinite(left) && Number.isFinite(total) && total > 0 && left / total < 0.05;
+}
+
 export class ZureqError extends Error {
   constructor(code, message, details = {}) {
     super(message);

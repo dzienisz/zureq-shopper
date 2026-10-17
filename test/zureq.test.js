@@ -1,13 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addSearchHistory, callTool, chunkLines, freshnessLabel, getCachedShopInfo,
+  addSearchHistory, callTool, chunkLines, formatCredits, freshnessLabel, getCachedShopInfo,
   getShopInfo, locationArgs, mapApiError, normalizeMarkets, parseToolResponse,
-  stockLabel, ZureqError
+  isLowCredits, stockLabel, ZureqError
 } from '../zureq.js';
 
 const originalChrome = globalThis.chrome;
 const originalFetch = globalThis.fetch;
+
+test('formats credit counts with English thousands separators', () => {
+  assert.equal(formatCredits(14893), '14,893');
+  assert.equal(formatCredits('1000'), '1,000');
+  assert.equal(formatCredits(null), '—');
+  assert.equal(formatCredits(Number.NaN), '—');
+});
+
+test('flags balances below five percent of included credits', () => {
+  assert.equal(isLowCredits(24, 500), true);
+  assert.equal(isLowCredits(25, 500), false);
+  assert.equal(isLowCredits(0, 0), false);
+  assert.equal(isLowCredits(null, 500), false);
+});
 
 test('maps country codes and regions to search location arguments', () => {
   assert.deepEqual(locationArgs(''), {});

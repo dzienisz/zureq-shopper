@@ -12,14 +12,30 @@
       <p class="eyebrow">ZUREQ</p>
       <h1>Shopper</h1>
     </div>
-    <button class="icon-button" id="open-options" title="Open options" aria-label="Open options">⚙</button>
+    <div class="header-actions">
+      <button class="usage-badge" id="usage-toggle" type="button" aria-controls="usage-popover" aria-expanded="false">—</button>
+      <button class="icon-button" id="open-options" title="Open options" aria-label="Open options">⚙</button>
+    </div>
+    <section id="usage-popover" class="usage-popover hidden" role="region" aria-labelledby="usage-popover-title">
+      <div class="usage-heading">
+        <h2 id="usage-popover-title">Usage</h2>
+        <button id="refresh-usage" class="secondary" type="button">Refresh</button>
+      </div>
+      <dl class="usage-details">
+        <div><dt>Plan</dt><dd id="usage-plan">—</dd></div>
+        <div><dt>Used / included</dt><dd id="usage-used-included">—</dd></div>
+        <div><dt>Period</dt><dd id="usage-period">—</dd></div>
+      </dl>
+      <p class="usage-session-line">Session estimate: <strong id="usage-session">0 credits</strong></p>
+      <p id="usage-error" class="hint usage-error hidden">Usage could not be loaded.</p>
+      <p class="hint usage-note">Background watch checks are not included in the session estimate.</p>
+    </section>
   </header>
   <nav class="tabs" aria-label="Main views">
     <button class="tab active" data-tab="search">Search</button>
     <button class="tab" data-tab="compare">Compare</button>
     <button class="tab" data-tab="list">List</button>
     <button class="tab" data-tab="watch">Watch</button>
-    <button class="tab" data-tab="usage">Usage</button>
   </nav>
   <main>
     <div id="notice" class="notice hidden" role="status"></div>
@@ -75,11 +91,6 @@
       <div id="watch-list"></div>
     </section>
 
-    <section id="usage-panel" class="panel hidden">
-      <div class="section-heading"><div><p class="eyebrow">ACCOUNT</p><h2>Usage</h2></div><button id="refresh-usage" class="secondary">Refresh</button></div>
-      <div id="usage-results" class="usage-card"></div>
-      <p class="hint">This session estimate includes successful calls made from this panel.</p>
-    </section>
   </main>
   <script type="module" src="sidepanel.js"></script>
 </body>
