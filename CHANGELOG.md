@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.2] - 2026-10-17
+
+- List: products that come in sizes/colours now show a Variant picker, and
+  checkout links use the chosen variant.
+- Watch uses the last search you ran, not unsent form edits.
+- Options "Test connection" no longer saves an untested key.
+- "Visit shop" appears right after the first checkout link; Max price 0 is
+  rejected before searching.
+- Compare market chips work with the keyboard, long recent searches are
+  truncated, and the header fits at 320px.
+
 ## [1.3.1] - 2026-10-17
 
 - Added loading feedback with busy buttons and spinners for Search, Compare,
