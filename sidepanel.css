@@ -10,7 +10,7 @@
   --accent: #47d6ee;
   --accent-deep: #17a0bc;
   --accent-text: #08758b;
-  --lime: #c8f169;
+  --chip: #d9f3f6;
   --danger: #e40014;
   --mono: ui-monospace, "SF Mono", Menlo, monospace;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -126,7 +126,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent-deep); bo
 .details select { margin: 4px 0 8px; }
 .checkout { background: var(--panel); border-radius: 7px; padding: 8px; margin-top: 8px; overflow-wrap: anywhere; }
 .checkout a { color: var(--accent-text); }
-.cheaper { color: var(--ink); background: var(--lime); border-radius: 4px; padding: 2px 4px; font-size: 10px; font-weight: 800; }
+.cheaper { color: #205963; background: var(--chip); border-radius: 4px; padding: 2px 4px; font-size: 10px; font-weight: 800; }
 textarea { display: block; width: 100%; resize: vertical; margin-top: 5px; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; color: var(--ink); background: #fff; outline: none; font: inherit; }
 .estimate { color: var(--accent-text); font-size: 11px; font-weight: 800; text-align: right; padding-top: 18px; }
 #list-country { min-width: 115px; }
