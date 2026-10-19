@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.4] - 2026-10-17
+
+- New ZUREQ logo: the wave mark on ink, matching the current zureq.io branding
+  (no more lime).
+- Store screenshots and promo tiles re-rendered with the new logo.
+
 ## [1.3.3] - 2026-10-17
 
 - List: Checkout link waits for product details, so products that need a size/
