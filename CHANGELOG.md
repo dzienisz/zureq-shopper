@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- An optional anonymous Google Form survey opens in the browser after uninstalling.
+
 ## [1.3.4] - 2026-10-17
 
 - New ZUREQ logo: the wave mark on ink, matching the current zureq.io branding
