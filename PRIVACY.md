@@ -17,6 +17,10 @@ ZUREQ Shopper is designed to keep personal shopping data under your control.
   caches its result locally for six hours.
 - ZUREQ Shopper has no tracking or analytics and does not sell data.
 
+## Uninstall survey
+
+After uninstalling, your browser opens an optional Google Form. The extension sends no data with it, and the link has no identifiers. Answers are anonymous and covered by Google's [Privacy Policy](https://policies.google.com/privacy). This survey is separate from ZUREQ's product-search processing; survey answers never include your API key or search history automatically, and the extension does not send either with the link.
+
 For questions or requests, open an issue in the
 [ZUREQ Shopper GitHub repository](https://github.com/dzienisz/zureq-shopper/issues).
 

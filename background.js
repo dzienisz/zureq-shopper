@@ -2,6 +2,12 @@ import { callTool, locationArgs } from './zureq.js';
 import { checkWatchlist, WATCH_ALARM, WATCH_INTERVALS } from './watchlist.js';
 import { cacheKey, getCached, marketForSite, pickBest, putCached } from './autocompare.js';
 
+const UNINSTALL_SURVEY_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc-ox6juSdwAYQGTsliCwK_tv3jRuGi0JhqiE2SEHtCfZUZCw/viewform';
+
+if (chrome.runtime?.setUninstallURL) {
+  chrome.runtime.setUninstallURL(UNINSTALL_SURVEY_URL);
+}
+
 const autoCompareInFlight = new Map();
 let autoCompareWrite = Promise.resolve();
 
