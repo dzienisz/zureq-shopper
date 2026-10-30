@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Prepared for Microsoft Edge Add-ons (same package as Chrome).
+
 ## [1.4.0] - 2026-10-30
 
 - The session credit counter charges 1 credit for an empty search and 2 for a comparison with no offers, matching Zureq's billing.
