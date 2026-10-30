@@ -90,3 +90,14 @@ https://github.com/dzienisz/zureq-shopper/issues
 PRIVACY POLICY
 
 https://github.com/dzienisz/zureq-shopper/blob/main/PRIVACY.md
+
+## Screenshots
+
+Real Firefox screenshots (Firefox sidebar, live ZUREQ API, 1280×800), uploaded to AMO in this order:
+
+| File | Caption |
+| --- | --- |
+| `store-assets/firefox/ff1-search.png` | Search the ZUREQ network from the Firefox sidebar |
+| `store-assets/firefox/ff2-compare.png` | Compare markets side by side |
+| `store-assets/firefox/ff3-list.png` | Search a shopping list and get per-shop totals |
+| `store-assets/firefox/ff4-watch.png` | Watch products and get notified when they get cheaper |
