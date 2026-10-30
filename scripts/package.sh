@@ -16,11 +16,14 @@ VERSION="$(read_version manifest.json)"
 ZIP="zureq-shopper-$VERSION.zip"
 rm -f "$ZIP"
 
-zip -q "$ZIP" \
-  manifest.json background.js zureq.js list.js loading.js autocompare.js pagescan.js content.js watchlist.js \
-  sidepanel.html sidepanel.js sidepanel.css \
-  options.html options.js options.css \
-  icons/icon16.png icons/icon48.png icons/icon128.png icons/zureq-mark.svg LICENSE
+mapfile -t package_files < <(sed '/^[[:space:]]*#/d; /^[[:space:]]*$/d' scripts/files.txt)
+for file in "${package_files[@]}"; do
+  if [ ! -f "$file" ]; then
+    echo "Missing package file: $file" >&2
+    exit 1
+  fi
+done
+zip -q "$ZIP" "${package_files[@]}"
 
 fail=0
 ok() { echo "  ✓ $1"; }

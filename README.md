@@ -1,6 +1,6 @@
 # ZUREQ Shopper
 
-ZUREQ Shopper is a small, zero-build extension for Chrome and Edge to find products, compare markets, and create checkout links through the [ZUREQ MCP API](https://zureq.io).
+ZUREQ Shopper is a small, zero-build extension for Chrome and Edge, with a generated Firefox version, for finding products, comparing markets, and creating checkout links through the [ZUREQ MCP API](https://zureq.io).
 
 Featured integration on [zureq.io](https://zureq.io).
 
@@ -61,13 +61,24 @@ npm test
 
 To try the extension in Chrome or Edge, open `chrome://extensions` or `edge://extensions`, enable **Developer mode**, and choose **Load unpacked**, selecting this repository directory.
 
+## Firefox
+
+Build the Firefox version with `npm run build:firefox`. Open
+`about:debugging` → **This Firefox** → **Load Temporary Add-on…** and select
+`dist/firefox/manifest.json`. Re-run the build after edits before reloading the
+temporary add-on. The toolbar icon toggles the ZUREQ Shopper sidebar.
+
 ## Release
 
 1. Run `scripts/bump-version.sh X.Y.Z` to update `manifest.json` and `package.json`.
 2. Add a matching `## [X.Y.Z]` section to `CHANGELOG.md`.
 3. Commit the changes, create tag `vX.Y.Z`, and push the tag.
-4. The release workflow runs tests, packages the raw extension, creates the GitHub Release, and optionally uploads to the Chrome Web Store and Edge Add-ons. The Edge step runs only when all `EDGE_*` secrets are configured.
+4. The release workflow runs tests, packages the Chrome and Firefox extensions,
+   and attaches both zips to the GitHub Release. It publishes to the Chrome Web
+   Store when its secrets are configured, Edge Add-ons only when all `EDGE_*`
+   secrets are set, and AMO only when `AMO_*` secrets are set.
 
-Chrome Web Store copy and screenshot sources live in `store-assets/`; Edge
-listing copy is in `store-assets/edge/listing.md`. Regenerate the listing PNGs
-with `bash store-assets/render.sh`.
+Chrome Web Store copy is in `store-assets/listing.md`, Edge Add-ons copy is in
+`store-assets/edge/listing.md`, and Firefox Add-ons copy is in
+`store-assets/firefox/listing.md`. Regenerate the listing PNGs with
+`bash store-assets/render.sh`.

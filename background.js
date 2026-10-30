@@ -24,7 +24,17 @@ function createMenus() {
 
 chrome.runtime.onInstalled.addListener(createMenus);
 chrome.runtime.onStartup.addListener(createMenus);
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+
+const sidebarAction = globalThis.browser?.sidebarAction;
+if (chrome.sidePanel) {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+} else if (sidebarAction) {
+  chrome.action.onClicked.addListener(() => { sidebarAction.toggle(); });
+}
+
+function openPanel(tabId) {
+  return chrome.sidePanel ? chrome.sidePanel.open({ tabId }) : sidebarAction.open();
+}
 
 async function scheduleWatchAlarm() {
   const settings = await chrome.storage.sync.get({ watchInterval: '24' });
@@ -104,10 +114,10 @@ chrome.notifications.onClicked.addListener((notificationId) => {
 });
 
 function savePendingAndOpen(pending, tabId) {
-  const openPanel = chrome.sidePanel.open({ tabId });
+  const panelOpened = openPanel(tabId);
   const savePending = chrome.storage.session.set({ zureqPending: pending })
     .catch(() => chrome.storage.local.set({ zureqPending: pending }));
-  return Promise.all([openPanel, savePending]);
+  return Promise.all([panelOpened, savePending]);
 }
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {

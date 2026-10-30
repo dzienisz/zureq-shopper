@@ -1,6 +1,6 @@
 name: Release
 
-# Package and publish the Chrome Web Store and Edge Add-ons extensions for version tags.
+# Package and publish the Chrome Web Store, Edge Add-ons and Firefox Add-ons extensions for version tags.
 on:
   push:
     tags: ['v*.*.*']
@@ -29,11 +29,18 @@ jobs:
       - name: Package extension
         run: bash scripts/package.sh
 
+      - name: Package Firefox extension
+        run: npm run build:firefox -- --zip
+
       - name: Verify tag matches package version
         run: |
           version="${GITHUB_REF_NAME#v}"
           if [ ! -f "zureq-shopper-$version.zip" ]; then
             echo "Tag $GITHUB_REF_NAME does not match manifest.json." >&2
+            exit 1
+          fi
+          if [ ! -f "dist/zureq-shopper-firefox-$version.zip" ]; then
+            echo "Firefox package for tag $GITHUB_REF_NAME is missing." >&2
             exit 1
           fi
 
@@ -55,14 +62,15 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           zip="zureq-shopper-$version.zip"
+          firefox_zip="dist/zureq-shopper-firefox-$version.zip"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md
-            gh release upload "$GITHUB_REF_NAME" "$zip" --clobber
+            gh release upload "$GITHUB_REF_NAME" "$zip" "$firefox_zip" --clobber
           else
             gh release create "$GITHUB_REF_NAME" \
               --title "$GITHUB_REF_NAME" \
               --notes-file release-notes.md \
-              "$zip"
+              "$zip" "$firefox_zip"
           fi
 
       - name: Publish to Chrome Web Store
@@ -93,3 +101,19 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           node scripts/publish-edge.cjs "zureq-shopper-$version.zip" \
             "Release ${GITHUB_REF_NAME}: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
+
+      - name: Submit to Firefox Add-ons (AMO)
+        if: ${{ !cancelled() }}
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          if [ -z "$WEB_EXT_API_KEY" ] || [ -z "$WEB_EXT_API_SECRET" ]; then
+            echo "::warning::AMO secrets not configured - skipping submission"
+            exit 0
+          fi
+          npx --yes web-ext@10 sign \
+            --source-dir dist/firefox \
+            --channel listed \
+            --amo-metadata amo-metadata.json \
+            --approval-timeout 0
