@@ -5,6 +5,7 @@
   "type": "module",
   "description": "ZUREQ Shopper Chrome extension",
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "build:firefox": "node scripts/build-firefox.js"
   }
 }

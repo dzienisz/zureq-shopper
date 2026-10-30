@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Firefox version: ZUREQ Shopper opens in the Firefox sidebar.
+
 ## [1.4.0] - 2026-10-30
 
 - The session credit counter charges 1 credit for an empty search and 2 for a comparison with no offers, matching Zureq's billing.

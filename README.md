@@ -1,6 +1,6 @@
 # ZUREQ Shopper
 
-ZUREQ Shopper is a small, zero-build Chrome extension for finding products, comparing markets, and creating checkout links through the [Zureq MCP API](https://zureq.io).
+ZUREQ Shopper is a small, zero-build Chrome extension for finding products, comparing markets, and creating checkout links through the [ZUREQ MCP API](https://zureq.io), with a generated Firefox version.
 
 Featured integration on [zureq.io](https://zureq.io).
 
@@ -10,7 +10,7 @@ Featured integration on [zureq.io](https://zureq.io).
 2. Open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**.
 3. Select this repository directory, open the extension's **Options**, and save your key.
 
-The extension stores the key in Chrome sync storage and only contacts `api.zureq.io`. Search history and 24-hour market-list and shop-info caches are stored locally.
+The extension stores the key in your browser's sync storage and only contacts `api.zureq.io`. Search history and 24-hour market-list and shop-info caches are stored locally.
 
 ## Features
 
@@ -61,12 +61,22 @@ npm test
 
 To try the extension, open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**, selecting this repository directory.
 
+## Firefox
+
+Build the Firefox version with `npm run build:firefox`. Open
+`about:debugging` → **This Firefox** → **Load Temporary Add-on…** and select
+`dist/firefox/manifest.json`. Re-run the build after edits before reloading the
+temporary add-on. The toolbar icon toggles the ZUREQ Shopper sidebar.
+
 ## Release
 
 1. Run `scripts/bump-version.sh X.Y.Z` to update `manifest.json` and `package.json`.
 2. Add a matching `## [X.Y.Z]` section to `CHANGELOG.md`.
 3. Commit the changes, create tag `vX.Y.Z`, and push the tag.
-4. The release workflow runs tests, packages the raw extension, creates the GitHub Release, and optionally uploads to the Chrome Web Store when its secrets are configured.
+4. The release workflow runs tests, packages the Chrome and Firefox extensions,
+   and attaches both zips to the GitHub Release. Store publishing is optional
+   and runs only when its secrets are configured.
 
-Chrome Web Store copy and screenshot sources live in `store-assets/`. Regenerate
-the listing PNGs with `bash store-assets/render.sh`.
+Chrome Web Store copy and screenshot sources live in `store-assets/`; Firefox
+Add-ons copy is in `store-assets/firefox/listing.md`. Regenerate the listing
+PNGs with `bash store-assets/render.sh`.

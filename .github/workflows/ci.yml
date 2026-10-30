@@ -22,6 +22,13 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Build Firefox extension
+        run: npm run build:firefox
+
+      # Expected warnings: guarded sidePanel calls and HTML sinks (templates use esc; decodeEntities uses a textarea).
+      - name: Lint Firefox extension
+        run: npx --yes web-ext@10 lint --source-dir dist/firefox
+
       - name: Check JavaScript syntax
         run: |
           for file in *.js test/*.js; do
