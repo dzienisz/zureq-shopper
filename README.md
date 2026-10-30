@@ -39,15 +39,15 @@ The extension stores the key in Chrome sync storage and only contacts `api.zureq
 
 | Tool | Credits |
 | --- | ---: |
-| `search_products` | 3 |
-| `compare_markets` | 6 |
+| `search_products` | 3 credits (1 if nothing is found) |
+| `compare_markets` | 6 credits (2 if every market is empty) |
 | `get_product` | 1 |
 | `create_checkout_link` | 1 |
 | `get_shop` | 1 (cached per shop for 24 hours) |
 | `list_shops`, `list_categories` | 1 |
 | `list_markets`, `get_usage` | Free |
 
-Each List search costs 3 credits per item. Checkout checks shop support with `get_shop` before creating links; shop metadata is cached per shop for 24 hours. Each checkout-link request costs 1 credit, and cart links respect each shop's line limit.
+Each List search costs up to 3 credits per item. Checkout checks shop support with `get_shop` before creating links; shop metadata is cached per shop for 24 hours. Each checkout-link request costs 1 credit, and cart links respect each shop's line limit.
 
 ## Development
 

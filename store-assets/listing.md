@@ -52,15 +52,15 @@ CREDITS
 
 Bring your own Zureq API key. Tool calls use the following credits:
 
-search_products: 3 credits
-compare_markets: 6 credits
+search_products: 3 credits (1 if nothing is found)
+compare_markets: 6 credits (2 if every market is empty)
 get_product: 1 credit
 create_checkout_link: 1 credit
 get_shop: 1 credit (cached per shop for 24 hours)
 list_shops, list_categories: 1 credit each
 list_markets and get_usage: free
 
-Each List search costs 3 credits per item. Checkout links use 1 credit per
+Each List search costs up to 3 credits per item. Checkout links use 1 credit per
 request and respect each shop's line limit. The extension checks shop support
 with `get_shop` before creating links; shop metadata is cached for 24 hours.
 

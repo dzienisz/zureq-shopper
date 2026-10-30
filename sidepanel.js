@@ -1,5 +1,5 @@
 import {
-  applyLiveDetails, TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool, chunkLines,
+  applyLiveDetails, TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool, chunkLines, creditCost,
   checkoutSku, formatCredits,
   freshnessLabel, getCachedMarkets, getCachedShopInfo, getSearchHistory,
   getShopInfo, isLowCredits, locationArgs, normalizeMarkets, parseMaxPrice, stockLabel
@@ -138,7 +138,7 @@ function handleError(error) {
 }
 async function tool(name, args) {
   const data = await callTool(name, args);
-  const cost = TOOL_COSTS[name] || 0;
+  const cost = creditCost(name, data);
   state.sessionCredits += cost;
   if (cost > 0) {
     if (Number.isFinite(state.usage.remaining)) state.usage.remaining = Math.max(0, state.usage.remaining - cost);
@@ -395,8 +395,8 @@ function updateListEstimate() {
   const count = parseListInput($('list-input').value).length;
   const cost = count * TOOL_COSTS.search_products;
   $('list-estimate').textContent = count > MAX_LIST_ITEMS
-    ? `${count} items (max ${MAX_LIST_ITEMS}) · ~${cost} credits`
-    : `${count} item${count === 1 ? '' : 's'} · ~${cost} credits`;
+    ? `${count} items (max ${MAX_LIST_ITEMS}) · up to ${cost} credits`
+    : `${count} item${count === 1 ? '' : 's'} · up to ${cost} credits`;
   $('search-list').disabled = state.list.running || count === 0 || count > MAX_LIST_ITEMS;
   if (count > MAX_LIST_ITEMS) $('list-run-status').textContent = `Enter no more than ${MAX_LIST_ITEMS} items.`;
   else if (!state.list.running && !state.list.parts.length) $('list-run-status').textContent = 'Enter up to 10 items.';
@@ -687,7 +687,7 @@ async function renderWatches() {
   const watches = await getWatches();
   const settings = await chrome.storage.sync.get({ watchInterval: '24' });
   const hours = settings.watchInterval === '168' ? '168' : String(settings.watchInterval || '24');
-  $('watch-hint').textContent = `Checks run every ${hours} h in the background (~3 credits per watch). Change the interval in Options.`;
+  $('watch-hint').textContent = `Checks run every ${hours} h in the background (up to 3 credits per watch). Change the interval in Options.`;
   $('watch-list').innerHTML = watches.length ? watches.map((watch) => {
     const last = watch.lastResult;
     const lastLine = last

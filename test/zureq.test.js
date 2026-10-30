@@ -1,13 +1,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addSearchHistory, applyLiveDetails, callTool, checkoutSku, chunkLines, formatCredits, freshnessLabel, getCachedShopInfo,
+  addSearchHistory, applyLiveDetails, callTool, checkoutSku, chunkLines, creditCost, EMPTY_RESULT_COSTS, formatCredits, freshnessLabel, getCachedShopInfo,
   getShopInfo, isRetryable, locationArgs, mapApiError, normalizeMarkets, parseMaxPrice, parseToolResponse,
   isLowCredits, stockLabel, ZureqError
 } from '../zureq.js';
 
 const originalChrome = globalThis.chrome;
 const originalFetch = globalThis.fetch;
+
+test('uses documented lower credit costs for empty search and comparison results', () => {
+  assert.deepEqual(EMPTY_RESULT_COSTS, { search_products: 1, compare_markets: 2 });
+  assert.equal(creditCost('search_products', { products: [{ sku: 'one' }] }), 3);
+  assert.equal(creditCost('search_products', { products: [] }), 1);
+  assert.equal(creditCost('search_products', { items: [{ sku: 'one' }] }), 3);
+  assert.equal(creditCost('search_products', { items: [] }), 1);
+  assert.equal(creditCost('compare_markets', { markets: [{ offers: [{ sku: 'one' }] }] }), 6);
+  assert.equal(creditCost('compare_markets', {
+    markets: [{ offerCount: 0 }, { items: [] }]
+  }), 2);
+  assert.equal(creditCost('compare_markets', { results: [{ candidates: [{ sku: 'one' }] }] }), 6);
+  assert.equal(creditCost('compare_markets', { comparisons: [{ products: [] }] }), 2);
+  assert.equal(creditCost('compare_markets', [{ offers: [] }, { offerCount: 0 }]), 2);
+  assert.equal(creditCost('compare_markets', { markets: [] }), 2);
+  assert.equal(creditCost('missing_tool', {}), 0);
+  assert.equal(creditCost('get_usage', {}), 0);
+  assert.equal(creditCost('list_markets', {}), 0);
+});
 
 test('formats credit counts with English thousands separators', () => {
   assert.equal(formatCredits(14893), '14,893');
