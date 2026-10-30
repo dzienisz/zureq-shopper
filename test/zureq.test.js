@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   addSearchHistory, callTool, checkoutSku, chunkLines, formatCredits, freshnessLabel, getCachedShopInfo,
-  getShopInfo, locationArgs, mapApiError, normalizeMarkets, parseMaxPrice, parseToolResponse,
+  getShopInfo, isRetryable, locationArgs, mapApiError, normalizeMarkets, parseMaxPrice, parseToolResponse,
   isLowCredits, stockLabel, ZureqError
 } from '../zureq.js';
 
@@ -68,6 +68,20 @@ test('maps invalid arguments', () => {
   assert.equal(mapApiError({ code: -32602 }).code, 'INVALID_ARGS');
 });
 
+test('identifies retryable Zureq errors', () => {
+  for (const error of [
+    new ZureqError('RATE_LIMIT', 'rate limited'),
+    new ZureqError('UNAVAILABLE', 'unavailable'),
+    new ZureqError('API_ERROR', 'Shop did not answer in time'),
+    new ZureqError('API_ERROR', 'Market comparison timed out.'),
+    new ZureqError('API_ERROR', 'temporarily unavailable')
+  ]) assert.equal(isRetryable(error), true);
+  for (const error of [
+    new ZureqError('API_ERROR', 'No active shop with id "x"'),
+    new ZureqError('NETWORK_ERROR', 'unreadable response')
+  ]) assert.equal(isRetryable(error), false);
+});
+
 test('parses structured content', () => {
   const data = { products: [{ name: 'Lamp' }] };
   assert.deepEqual(parseToolResponse({ result: { structuredContent: data } }), data);
@@ -128,6 +142,96 @@ test('stops after two temporarily unavailable API errors', async () => {
     (error) => error.code === 'API_ERROR' && /temporarily unavailable/i.test(error.message)
   );
   assert.equal(calls, 2);
+});
+
+test('retries a get_product shop timeout once', async () => {
+  globalThis.chrome = { storage: { sync: { get: async () => ({ zureqApiKey: 'test-key' }) } } };
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return {
+      json: async () => (calls === 1
+        ? { result: { isError: true, content: [{ type: 'text', text: 'Shop "x" did not answer in time (deadline). Try again.' }] } }
+        : { result: { structuredContent: { price: 10 } } })
+    };
+  };
+
+  assert.deepEqual(await callTool('get_product', { shopId: 'x', sku: 'sku' }), { price: 10 });
+  assert.equal(calls, 2);
+});
+
+test('retries a timed-out market comparison once', async () => {
+  globalThis.chrome = { storage: { sync: { get: async () => ({ zureqApiKey: 'test-key' }) } } };
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return {
+      json: async () => (calls === 1
+        ? { result: { isError: true, content: [{ type: 'text', text: 'Market comparison timed out.' }] } }
+        : { result: { structuredContent: { markets: [] } } })
+    };
+  };
+
+  assert.deepEqual(await callTool('compare_markets', {}), { markets: [] });
+  assert.equal(calls, 2);
+});
+
+test('retries JSON-RPC unavailable errors once and preserves UNAVAILABLE', async () => {
+  globalThis.chrome = { storage: { sync: { get: async () => ({ zureqApiKey: 'test-key' }) } } };
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return { json: async () => ({ error: { code: -32603, message: 'Service unavailable' } }) };
+  };
+
+  await assert.rejects(callTool('get_product', {}), (error) => error.code === 'UNAVAILABLE');
+  assert.equal(calls, 2);
+});
+
+test('retries an unreadable HTTP 503 response once', async () => {
+  globalThis.chrome = { storage: { sync: { get: async () => ({ zureqApiKey: 'test-key' }) } } };
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return calls === 1
+      ? { status: 503, json: async () => { throw new Error('not JSON'); } }
+      : { json: async () => ({ result: { structuredContent: { products: [] } } }) };
+  };
+
+  assert.deepEqual(await callTool('search_products', {}), { products: [] });
+  assert.equal(calls, 2);
+});
+
+test('does not retry inactive-shop errors', async () => {
+  globalThis.chrome = { storage: { sync: { get: async () => ({ zureqApiKey: 'test-key' }) } } };
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return {
+      json: async () => ({
+        result: { isError: true, content: [{ type: 'text', text: 'No active shop with id "x"' }] }
+      })
+    };
+  };
+
+  await assert.rejects(callTool('get_shop', {}), (error) => error.code === 'API_ERROR');
+  assert.equal(calls, 1);
+});
+
+test('retryRateLimit false disables every retry', async () => {
+  globalThis.chrome = { storage: { sync: { get: async () => ({ zureqApiKey: 'test-key' }) } } };
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return {
+      json: async () => ({
+        result: { isError: true, content: [{ type: 'text', text: 'Search is temporarily unavailable.' }] }
+      })
+    };
+  };
+
+  await assert.rejects(callTool('search_products', {}, { retryRateLimit: false }), (error) => error.code === 'API_ERROR');
+  assert.equal(calls, 1);
 });
 
 test('uses an API-key override without reading Chrome storage', async () => {
