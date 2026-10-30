@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addSearchHistory, callTool, checkoutSku, chunkLines, formatCredits, freshnessLabel, getCachedShopInfo,
+  addSearchHistory, applyLiveDetails, callTool, checkoutSku, chunkLines, formatCredits, freshnessLabel, getCachedShopInfo,
   getShopInfo, locationArgs, mapApiError, normalizeMarkets, parseMaxPrice, parseToolResponse,
   isLowCredits, stockLabel, ZureqError
 } from '../zureq.js';
@@ -14,6 +14,42 @@ test('formats credit counts with English thousands separators', () => {
   assert.equal(formatCredits('1000'), '1,000');
   assert.equal(formatCredits(null), '—');
   assert.equal(formatCredits(Number.NaN), '—');
+});
+
+test('applies a changed live price without mutating the search product', () => {
+  const product = { price: 18.5, currency: 'PLN', inStock: false, name: 'Lamp' };
+  const original = { ...product };
+  const result = applyLiveDetails(product, { price: '21.25', currency: 'EUR', inStock: true });
+
+  assert.deepEqual(result, {
+    product: { ...product, price: 21.25, currency: 'EUR', inStock: true },
+    previousPrice: 18.5
+  });
+  assert.deepEqual(product, original);
+});
+
+test('does not report a previous price when the live price is unchanged', () => {
+  const product = { price: 18.5, currency: 'PLN', inStock: true };
+  assert.deepEqual(applyLiveDetails(product, { price: '18.50' }), {
+    product: { ...product, price: 18.5 },
+    previousPrice: null
+  });
+});
+
+test('leaves a search product unchanged when the live price is missing or nonnumeric', () => {
+  const product = { price: 18.5, currency: 'PLN' };
+  for (const details of [{}, { price: 'retail' }, { price: '' }, { price: null }]) {
+    const result = applyLiveDetails(product, details);
+    assert.equal(result.product, product);
+    assert.equal(result.previousPrice, null);
+  }
+});
+
+test('preserves currency when live details omit it and updates stock', () => {
+  const product = { price: 18.5, currency: 'PLN', inStock: false };
+  const result = applyLiveDetails(product, { price: 19, inStock: true });
+  assert.equal(result.product.currency, 'PLN');
+  assert.equal(result.product.inStock, true);
 });
 
 test('flags balances below five percent of included credits', () => {
