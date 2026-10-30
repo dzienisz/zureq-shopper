@@ -13,6 +13,29 @@ export const TOOL_COSTS = Object.freeze({
   get_usage: 0
 });
 
+export const EMPTY_RESULT_COSTS = Object.freeze({
+  search_products: 1,
+  compare_markets: 2
+});
+
+export function creditCost(name, data) {
+  if (name === 'search_products') {
+    const products = data?.products || data?.items || [];
+    if (products.length === 0) return EMPTY_RESULT_COSTS.search_products;
+  }
+  if (name === 'compare_markets') {
+    const markets = data?.markets || data?.results || data?.comparisons || (Array.isArray(data) ? data : []);
+    const hasNoOffers = (market) => {
+      const offers = market?.offers || market?.candidates || market?.products || market?.items || [];
+      return Number(market?.offerCount ?? offers.length) === 0;
+    };
+    if (Array.isArray(markets) && markets.every(hasNoOffers)) {
+      return EMPTY_RESULT_COSTS.compare_markets;
+    }
+  }
+  return TOOL_COSTS[name] || 0;
+}
+
 export function formatCredits(value) {
   if (value == null || value === '') return '—';
   const amount = Number(value);

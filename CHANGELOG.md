@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- The session credit counter charges 1 credit for an empty search and 2 for a comparison with no offers, matching Zureq's billing.
 - An optional anonymous Google Form survey opens in the browser after uninstalling.
 
 ## [1.3.4] - 2026-10-17
