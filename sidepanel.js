@@ -1,5 +1,5 @@
 import {
-  TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool, chunkLines,
+  applyLiveDetails, TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool, chunkLines,
   checkoutSku, formatCredits,
   freshnessLabel, getCachedMarkets, getCachedShopInfo, getSearchHistory,
   getShopInfo, isLowCredits, locationArgs, normalizeMarkets, parseMaxPrice, stockLabel
@@ -262,8 +262,11 @@ function renderProducts() {
       String(state.source.currency || '').toUpperCase() === String(product.currency || '').toUpperCase() &&
       Number(product.price) < Number(state.source.price);
     const detailHtml = details ? detailsHtml(details, product.sku) : '';
+    const previousPriceNote = details?.previousPrice != null
+      ? ` <span class="muted">was ${esc(details.previousPrice)} ${esc(details.previousCurrency || product.currency || '')} in search</span>`
+      : '';
     const outOfStock = product.inStock === false ? '<span class="stock-chip">Out of stock</span>' : '';
-    return `<article class="card" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}">${image}<div class="product-copy"><h3>${esc(decodeEntities(product.name))}</h3><div class="product-shop">${esc(shopName)}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}${cheaper ? ' <span class="cheaper">cheaper</span>' : ''}</div>${outOfStock}</div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout</button><button data-action="watch">Watch</button></div>${detailHtml}</article>`;
+    return `<article class="card" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}">${image}<div class="product-copy"><h3>${esc(decodeEntities(product.name))}</h3><div class="product-shop">${esc(shopName)}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}${previousPriceNote}${cheaper ? ' <span class="cheaper">cheaper</span>' : ''}</div>${outOfStock}</div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout</button><button data-action="watch">Watch</button></div>${detailHtml}</article>`;
   }).join('') : '<p class="hint">No products found. Try a broader query or another country.</p>';
   if (products.length) {
     $('search-results').insertAdjacentHTML('afterbegin', '<div class="watch-search-row"><button data-action="watch-search">Watch this search</button></div>');
@@ -320,9 +323,17 @@ async function showDetails(card, button) {
   try {
     const result = await tool('get_product', { shopId: product.shopId, sku: product.sku });
     const details = result?.product || result;
+    const { product: liveProduct, previousPrice } = applyLiveDetails(product, details);
+    const previousCurrency = product.currency;
+    state.products = state.products.map((item) => productKey(item) === key ? liveProduct : item);
     let cachedShop = null;
     try { cachedShop = await getCachedShopInfo(product.shopId); } catch {}
-    const productDetails = { ...details, shopWebsite: cachedShop?.website };
+    const productDetails = {
+      ...details,
+      previousPrice,
+      previousCurrency,
+      shopWebsite: cachedShop?.website
+    };
     state.details.set(key, productDetails);
     renderProducts();
   } catch (error) {
@@ -415,7 +426,13 @@ function renderListParts() {
   const parts = state.list.parts;
   $('list-parts').innerHTML = parts.length ? parts.map((part, index) => `<div class="list-item" data-item="${index}">
     <h3>${esc(part.name)}</h3>
-    <div class="list-candidates">${part.candidates?.length ? part.candidates.slice(0, 5).map((candidate, candidateIndex) => `<label class="candidate-row"><input type="radio" name="list-pick-${index}" class="part-pick" value="${candidateIndex}" ${part.pick?.sku === candidate.sku && part.pick?.shopId === candidate.shopId ? 'checked' : ''}><span class="candidate-name">${esc(decodeEntities(candidate.name))} · ${esc(candidate.shopName || candidate.shopId || '')}</span><span class="candidate-price">${esc(candidate.price)} ${esc(candidate.currency || '')}</span></label>`).join('') : `<span class="muted">${part.error ? esc(part.error) : part.searched ? `No results for “${esc(part.query)}”.` : 'Not searched yet.'}</span>`}</div>
+    <div class="list-candidates">${part.candidates?.length ? part.candidates.slice(0, 5).map((candidate, candidateIndex) => {
+      const details = state.list.productDetails?.[productKey(candidate)];
+      const previousPriceNote = details?.previousPrice != null
+        ? ` <span class="muted">was ${esc(details.previousPrice)} ${esc(details.previousCurrency || candidate.currency || '')} in search</span>`
+        : '';
+      return `<label class="candidate-row"><input type="radio" name="list-pick-${index}" class="part-pick" value="${candidateIndex}" ${part.pick?.sku === candidate.sku && part.pick?.shopId === candidate.shopId ? 'checked' : ''}><span class="candidate-name">${esc(decodeEntities(candidate.name))} · ${esc(candidate.shopName || candidate.shopId || '')}</span><span class="candidate-price">${esc(candidate.price)} ${esc(candidate.currency || '')}${previousPriceNote}</span></label>`;
+    }).join('') : `<span class="muted">${part.error ? esc(part.error) : part.searched ? `No results for “${esc(part.query)}”.` : 'Not searched yet.'}</span>`}</div>
     ${listPickDetailsHtml(part, index)}
   </div>`).join('') : '';
 }
@@ -436,9 +453,38 @@ function listPickDetailsHtml(part, index) {
   return `<label class="list-variant-label">Variant<select class="list-variant" data-item="${index}">${options}</select></label>`;
 }
 
+function applyListPickDetails(part, pick, details) {
+  const key = productKey(pick);
+  const candidate = part.candidates?.find((item) => productKey(item) === key)
+    || (part.pick && productKey(part.pick) === key ? part.pick : pick);
+  const selected = part.pick && productKey(part.pick) === key ? part.pick : candidate;
+  const { product: liveSelected, previousPrice } = applyLiveDetails(selected, details);
+  const { product: liveCandidate } = applyLiveDetails(candidate, details);
+  const selectedPrice = Number(selected.price);
+  const livePrice = Number(details.price);
+  const priceIsCurrent = Number.isFinite(selectedPrice) && Number.isFinite(livePrice) && selectedPrice === livePrice;
+  if (Array.isArray(part.candidates)) {
+    part.candidates = part.candidates.map((item) => productKey(item) === key ? liveCandidate : item);
+  }
+  if (part.pick && productKey(part.pick) === key) part.pick = liveSelected;
+  return {
+    ...details,
+    previousPrice: previousPrice ?? (priceIsCurrent ? details.previousPrice ?? null : null),
+    previousCurrency: previousPrice != null
+      ? selected.currency
+      : priceIsCurrent ? details.previousCurrency ?? null : null
+  };
+}
+
 async function loadListPickDetails(part, pick) {
   const key = productKey(pick);
-  if (state.list.productDetails?.[key]) return;
+  if (state.list.productDetails?.[key]) {
+    state.list.productDetails[key] = applyListPickDetails(part, pick, state.list.productDetails[key]);
+    await saveList();
+    renderListParts();
+    renderListSummary();
+    return;
+  }
   part.detailError = '';
   part.detailErrorKey = '';
   part.loadingDetailsFor = key;
@@ -452,7 +498,7 @@ async function loadListPickDetails(part, pick) {
   try {
     const details = await request;
     state.list.productDetails ||= {};
-    state.list.productDetails[key] = details;
+    state.list.productDetails[key] = applyListPickDetails(part, pick, details);
     if (part.pick && productKey(part.pick) === key) {
       part.detailError = '';
       part.detailErrorKey = '';
@@ -468,6 +514,7 @@ async function loadListPickDetails(part, pick) {
   } finally {
     if (listDetailsRequests.get(key) === request) listDetailsRequests.delete(key);
     renderListParts();
+    renderListSummary();
   }
 }
 
@@ -554,11 +601,10 @@ async function listCheckout(groupIndex) {
   const buttonSelector = `.list-summary-group[data-group="${groupIndex}"] .list-checkout`;
   let button = document.querySelector(buttonSelector);
   let target = button?.parentElement.querySelector('.list-link');
-  const missingDetails = group.picks.filter(({ candidate }) => !state.list.productDetails?.[productKey(candidate)]);
-  if (missingDetails.length) {
+  if (group.picks.length) {
     if (button) button.disabled = true;
     if (target) target.textContent = 'Loading product details…';
-    await Promise.all(missingDetails.map(({ part, candidate }) => loadListPickDetails(part, candidate)));
+    await Promise.all(group.picks.map(({ part, candidate }) => loadListPickDetails(part, candidate)));
     group = state.listGroups[groupIndex];
     if (!group) return;
     button = document.querySelector(buttonSelector);

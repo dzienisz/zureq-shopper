@@ -26,6 +26,25 @@ export function isLowCredits(remaining, included) {
   return Number.isFinite(left) && Number.isFinite(total) && total > 0 && left / total < 0.05;
 }
 
+export function applyLiveDetails(product, details) {
+  const rawPrice = details?.price;
+  const price = typeof rawPrice === 'number'
+    ? rawPrice
+    : typeof rawPrice === 'string' && rawPrice.trim() !== '' ? Number(rawPrice) : Number.NaN;
+  if (!Number.isFinite(price)) return { product, previousPrice: null };
+
+  const oldPrice = Number(product?.price);
+  return {
+    product: {
+      ...product,
+      price,
+      currency: details.currency || product.currency,
+      inStock: details.inStock ?? product.inStock
+    },
+    previousPrice: Number.isFinite(oldPrice) && oldPrice !== price ? product.price : null
+  };
+}
+
 export class ZureqError extends Error {
   constructor(code, message, details = {}) {
     super(message);
