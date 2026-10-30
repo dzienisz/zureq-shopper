@@ -53,9 +53,12 @@ export function offerMatchesQuery(tokens, name) {
   const query = Array.isArray(tokens) ? tokens.flatMap((token) => queryTokens(token)) : [];
   if (!query.length) return true;
   const words = normalizedWords(decodeOfferEntities(name));
-  return query.every((token) => words.some((word) => (
-    word.startsWith(token) || (token.length >= 5 && word.startsWith(token.slice(0, -1)))
-  )));
+  return query.every((token) => words.some((word) => {
+    if (token.length === 1) {
+      return word === token || (word.startsWith(token) && /^\d+$/.test(word.slice(1)));
+    }
+    return word.startsWith(token) || (token.length >= 5 && word.startsWith(token.slice(0, -1)));
+  }));
 }
 
 export function creditCost(name, data) {

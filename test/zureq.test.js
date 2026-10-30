@@ -24,6 +24,12 @@ test('matches comparison offers against every normalized query token', () => {
   assert.equal(matches('dog food', 'Hot Dog Ketchup (F)'), false);
   assert.equal(matches('vitamin d', 'Carlson - Vitamin D3, 10000 IU'), true);
   assert.equal(matches('vitamin d', 'ALOE VERA + VITAMIN E'), false);
+  assert.equal(matches('vitamin d', 'ALOE VERA + VITAMIN E DEWY-FRESH! Smoothie Serum'), false);
+  assert.equal(matches('vitamin d', 'Carlson Vitamin D3'), true);
+  assert.equal(matches('vitamin d', 'Vitamin D 1000 IU'), true);
+  assert.equal(offerMatchesQuery(queryTokens('d'), 'd'), true);
+  assert.equal(offerMatchesQuery(queryTokens('d'), 'd3'), true);
+  assert.equal(offerMatchesQuery(queryTokens('d'), 'dog'), false);
   assert.equal(matches('kawa ziarnista', 'KAWA ZIARNISTA ARABICA'), true);
   assert.equal(matches('ładowarka usb c', 'Gembird Ładowarka USB-C 20W'), true);
   assert.equal(matches('buty do biegania', 'buty do biegania męskie'), true);
