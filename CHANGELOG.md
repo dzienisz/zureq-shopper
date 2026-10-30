@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 - The session credit counter charges 1 credit for an empty search and 2 for a comparison with no offers, matching Zureq's billing.
+- Store listing: 9,600+ shops and a link to the ZUREQ featured integration.
+- Details refreshes the product's price from the shop, so the card, sorting, List totals and Watch use the current price.
+- Shop timeouts, timed-out comparisons and Zureq 503 errors are retried once, as the Zureq docs recommend.
 - An optional anonymous Google Form survey opens in the browser after uninstalling.
 
 ## [1.3.4] - 2026-10-17
