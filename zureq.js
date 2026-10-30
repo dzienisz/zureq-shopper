@@ -35,11 +35,18 @@ export class ZureqError extends Error {
   }
 }
 
+export function isRetryable(error) {
+  return error?.code === 'RATE_LIMIT'
+    || error?.code === 'UNAVAILABLE'
+    || (error?.code === 'API_ERROR' && /temporarily unavailable|did not answer in time|timed out/i.test(error.message));
+}
+
 const ERROR_MESSAGES = {
   '-32001': ['BAD_KEY', 'The API key was rejected. Check it in Options.'],
   '-32002': ['RATE_LIMIT', 'Zureq is rate limiting requests. Please try again shortly.'],
   '-32003': ['CREDITS_EXHAUSTED', 'Your monthly Zureq credits are exhausted.'],
-  '-32602': ['INVALID_ARGS', 'The request was not accepted. Check the search fields.']
+  '-32602': ['INVALID_ARGS', 'The request was not accepted. Check the search fields.'],
+  '-32603': ['UNAVAILABLE', 'Zureq is temporarily unavailable. Please try again shortly.']
 };
 
 export function locationArgs(code) {
@@ -174,18 +181,20 @@ export async function callTool(name, args = {}, options = {}) {
       })
     });
     let payload;
+    let responseError;
     try {
       payload = await response.json();
     } catch {
-      throw new ZureqError('NETWORK_ERROR', 'Zureq returned an unreadable response.');
+      responseError = [502, 503, 504].includes(response.status)
+        ? new ZureqError('UNAVAILABLE', ERROR_MESSAGES['-32603'][1])
+        : new ZureqError('NETWORK_ERROR', 'Zureq returned an unreadable response.');
     }
     try {
+      if (responseError) throw responseError;
       return parseToolResponse(payload);
     } catch (error) {
-      const transientUnavailable = error.code === 'API_ERROR'
-        && /temporarily unavailable/i.test(error.message);
-      if ((error.code === 'RATE_LIMIT' || transientUnavailable) && attempt < maxAttempts) {
-        await delay(transientUnavailable ? 1500 : 2000);
+      if (isRetryable(error) && attempt < maxAttempts) {
+        await delay(2000);
         continue;
       }
       throw error;
