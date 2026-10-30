@@ -6,7 +6,7 @@ ZUREQ Shopper — Network Product Search & Price Compare
 
 ## Summary
 
-Search 8,900+ independent shops across the US, Poland, and Austria; compare markets, watch prices, and get ready-to-pay cart links.
+Search 9,600+ independent shops across the US, Poland, and Austria; compare markets, watch prices, and get ready-to-pay cart links.
 
 ## Detailed description
 
@@ -14,8 +14,10 @@ WHAT IT DOES
 
 ZUREQ Shopper gives you one focused shopping workspace for product discovery,
 market comparison, shopping lists, price alerts, and checkout links across
-8,900+ independent shops in the US, Poland, and Austria. It connects to the
+9,600+ independent shops in the US, Poland, and Austria. It connects to the
 Zureq MCP API with your own API key.
+
+Featured integration on zureq.io (https://zureq.io).
 
 HOW IT WORKS
 
