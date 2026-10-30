@@ -1,13 +1,13 @@
 # ZUREQ Shopper
 
-ZUREQ Shopper is a small, zero-build Chrome extension for finding products, comparing markets, and creating checkout links through the [ZUREQ MCP API](https://zureq.io), with a generated Firefox version.
+ZUREQ Shopper is a small, zero-build extension for Chrome and Edge, with a generated Firefox version, for finding products, comparing markets, and creating checkout links through the [ZUREQ MCP API](https://zureq.io).
 
 Featured integration on [zureq.io](https://zureq.io).
 
 ## Install
 
 1. Get an API key at [zureq.io](https://zureq.io).
-2. Open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**.
+2. In Chrome or Edge, open `chrome://extensions` or `edge://extensions`, enable **Developer mode**, and choose **Load unpacked**.
 3. Select this repository directory, open the extension's **Options**, and save your key.
 
 The extension stores the key in your browser's sync storage and only contacts `api.zureq.io`. Search history and 24-hour market-list and shop-info caches are stored locally.
@@ -59,7 +59,7 @@ Run the unit tests with:
 npm test
 ```
 
-To try the extension, open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**, selecting this repository directory.
+To try the extension in Chrome or Edge, open `chrome://extensions` or `edge://extensions`, enable **Developer mode**, and choose **Load unpacked**, selecting this repository directory.
 
 ## Firefox
 
@@ -74,9 +74,11 @@ temporary add-on. The toolbar icon toggles the ZUREQ Shopper sidebar.
 2. Add a matching `## [X.Y.Z]` section to `CHANGELOG.md`.
 3. Commit the changes, create tag `vX.Y.Z`, and push the tag.
 4. The release workflow runs tests, packages the Chrome and Firefox extensions,
-   and attaches both zips to the GitHub Release. Store publishing is optional
-   and runs only when its secrets are configured.
+   and attaches both zips to the GitHub Release. It publishes to the Chrome Web
+   Store when its secrets are configured, Edge Add-ons only when all `EDGE_*`
+   secrets are set, and AMO only when `AMO_*` secrets are set.
 
-Chrome Web Store copy and screenshot sources live in `store-assets/`; Firefox
-Add-ons copy is in `store-assets/firefox/listing.md`. Regenerate the listing
-PNGs with `bash store-assets/render.sh`.
+Chrome Web Store copy is in `store-assets/listing.md`, Edge Add-ons copy is in
+`store-assets/edge/listing.md`, and Firefox Add-ons copy is in
+`store-assets/firefox/listing.md`. Regenerate the listing PNGs with
+`bash store-assets/render.sh`.

@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 - Firefox version: ZUREQ Shopper opens in the Firefox sidebar.
+- Prepared for Microsoft Edge Add-ons (same package as Chrome).
 
 ## [1.4.0] - 2026-10-30
 
