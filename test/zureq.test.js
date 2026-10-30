@@ -3,11 +3,34 @@ import assert from 'node:assert/strict';
 import {
   addSearchHistory, applyLiveDetails, callTool, checkoutSku, chunkLines, creditCost, EMPTY_RESULT_COSTS, formatCredits, freshnessLabel, getCachedShopInfo,
   getShopInfo, isRetryable, locationArgs, mapApiError, normalizeMarkets, parseMaxPrice, parseToolResponse,
-  isLowCredits, stockLabel, ZureqError
+  isLowCredits, offerMatchesQuery, queryTokens, stockLabel, ZureqError
 } from '../zureq.js';
 
 const originalChrome = globalThis.chrome;
 const originalFetch = globalThis.fetch;
+
+test('normalizes query tokens and drops English, Polish, and German stopwords', () => {
+  assert.deepEqual(queryTokens('for and the with of a an do dla z w na i für fur und mit der die das vitamin D Ładowarka'), [
+    'vitamin', 'd', 'ladowarka'
+  ]);
+  assert.deepEqual(queryTokens('d'), ['d']);
+});
+
+test('matches comparison offers against every normalized query token', () => {
+  const matches = (query, name) => offerMatchesQuery(queryTokens(query), name);
+
+  assert.equal(matches('olive oil', 'ALOE VERA + VITAMIN E DEWY-FRESH!'), false);
+  assert.equal(matches('Food Club Extra Virgin Olive Oil 16.9 oz', 'Food Club Extra Virgin Olive Oil 16.9 oz'), true);
+  assert.equal(matches('dog food', 'Hot Dog Ketchup (F)'), false);
+  assert.equal(matches('vitamin d', 'Carlson - Vitamin D3, 10000 IU'), true);
+  assert.equal(matches('vitamin d', 'ALOE VERA + VITAMIN E'), false);
+  assert.equal(matches('kawa ziarnista', 'KAWA ZIARNISTA ARABICA'), true);
+  assert.equal(matches('ładowarka usb c', 'Gembird Ładowarka USB-C 20W'), true);
+  assert.equal(matches('buty do biegania', 'buty do biegania męskie'), true);
+  assert.equal(matches('oliwa z oliwek', 'OLIWA Z OLIWEK EXTRA VIRGIN BIO 500 ml &#8211; X'), true);
+  assert.equal(matches('chargers', 'Charger'), true);
+  assert.equal(offerMatchesQuery([], 'any offer name'), true);
+});
 
 test('uses documented lower credit costs for empty search and comparison results', () => {
   assert.deepEqual(EMPTY_RESULT_COSTS, { search_products: 1, compare_markets: 2 });

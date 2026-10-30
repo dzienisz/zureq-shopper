@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Compare hides offers that don't match the search and says when a market has no close match.
+
 ## [1.4.1] - 2026-10-30
 
 - Firefox version: ZUREQ Shopper opens in the Firefox sidebar.

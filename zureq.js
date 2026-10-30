@@ -18,6 +18,46 @@ export const EMPTY_RESULT_COSTS = Object.freeze({
   compare_markets: 2
 });
 
+const QUERY_STOPWORDS = new Set([
+  'for', 'and', 'the', 'with', 'of', 'a', 'an',
+  'do', 'dla', 'z', 'w', 'na', 'i',
+  'fur', 'und', 'mit', 'der', 'die', 'das'
+]);
+
+function decodeOfferEntities(value) {
+  return String(value ?? '')
+    .replace(/&amp;/gi, '&')
+    .replace(/&#(?:([0-9]+)|x([0-9a-f]+));/gi, (entity, decimal, hex) => {
+      const codePoint = Number.parseInt(decimal || hex, decimal ? 10 : 16);
+      return Number.isInteger(codePoint) && codePoint <= 0x10ffff
+        ? String.fromCodePoint(codePoint)
+        : entity;
+    });
+}
+
+function normalizedWords(value) {
+  return String(value ?? '')
+    .replace(/[Łł]/g, 'l')
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+}
+
+export function queryTokens(query) {
+  return normalizedWords(query).filter((token) => !QUERY_STOPWORDS.has(token));
+}
+
+export function offerMatchesQuery(tokens, name) {
+  const query = Array.isArray(tokens) ? tokens.flatMap((token) => queryTokens(token)) : [];
+  if (!query.length) return true;
+  const words = normalizedWords(decodeOfferEntities(name));
+  return query.every((token) => words.some((word) => (
+    word.startsWith(token) || (token.length >= 5 && word.startsWith(token.slice(0, -1)))
+  )));
+}
+
 export function creditCost(name, data) {
   if (name === 'search_products') {
     const products = data?.products || data?.items || [];

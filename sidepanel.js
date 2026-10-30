@@ -2,7 +2,7 @@ import {
   applyLiveDetails, TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool, chunkLines, creditCost,
   checkoutSku, formatCredits,
   freshnessLabel, getCachedMarkets, getCachedShopInfo, getSearchHistory,
-  getShopInfo, isLowCredits, locationArgs, normalizeMarkets, parseMaxPrice, stockLabel
+  getShopInfo, isLowCredits, locationArgs, normalizeMarkets, offerMatchesQuery, parseMaxPrice, queryTokens, stockLabel
 } from './zureq.js';
 import { groupListPicks, MAX_LIST_ITEMS, migrateListState, parseListInput } from './list.js';
 import { setBusy, skeletonHtml } from './loading.js';
@@ -721,25 +721,54 @@ async function compare(event) {
   resultsContainer.setAttribute('aria-busy', 'true');
   resultsContainer.innerHTML = skeletonHtml('market', state.selectedMarkets.length);
   try {
-    const data = await tool('compare_markets', { query: $('compare-query').value.trim(), markets: state.selectedMarkets, currency: $('currency').value.trim().toUpperCase() || 'PLN' });
+    const query = $('compare-query').value.trim();
+    const tokens = queryTokens(query);
+    const data = await tool('compare_markets', { query, markets: state.selectedMarkets, currency: $('currency').value.trim().toUpperCase() || 'PLN' });
     const results = normalizeComparison(data);
     const targetCurrency = data?.currency || $('currency').value.toUpperCase();
     resultsContainer.innerHTML = results.length ? results.map((market) => {
       const name = market.label || market.market || market.country || market.name || market.key || market.code || 'Market';
-      const candidates = market.offers || market.candidates || market.products || market.items || [];
+      const rawOffers = market.offers || market.candidates || market.products || market.items || [];
+      const offers = Array.isArray(rawOffers) ? rawOffers : [];
+      const hadOffers = offers.length > 0;
+      const candidates = offers.filter((offer) => offerMatchesQuery(tokens, offer.name || offer.productName || ''));
       const range = market.priceRange;
+      const shopCount = new Set(candidates.map((offer) => offer.shopId || offer.shopName).filter(Boolean)).size;
+      const offerPrices = candidates.map((offer) => {
+        const approximate = offer.approxPrice != null;
+        const value = approximate ? offer.approxPrice : offer.price ?? offer.convertedPrice;
+        if (value == null || String(value).trim() === '') return null;
+        const amount = Number(value);
+        if (!Number.isFinite(amount)) return null;
+        return {
+          amount,
+          currency: approximate ? offer.approxCurrency || targetCurrency : offer.currency || targetCurrency
+        };
+      }).filter(Boolean);
+      const lowestPrice = offerPrices.reduce((lowest, price) => !lowest || price.amount < lowest.amount ? price : lowest, null);
       const stats = [
-        market.shopCount != null && `${market.shopCount} shops`,
-        (market.offerCount ?? candidates.length) != null && `${market.offerCount ?? candidates.length} offers`,
-        range?.min != null && `from ${range.min} ${range.currency || targetCurrency}`,
-        market.minPrice != null && `min ${market.minPrice}`,
-        market.medianPrice != null && `median ${market.medianPrice}`
+        hadOffers
+          ? (candidates.length === 0 || shopCount > 0) && `${shopCount} shops`
+          : market.shopCount != null && `${market.shopCount} shops`,
+        hadOffers
+          ? `${candidates.length} offers`
+          : `${market.offerCount ?? offers.length} offers`,
+        hadOffers
+          ? lowestPrice && `from ${lowestPrice.amount} ${lowestPrice.currency}`
+          : range?.min != null && `from ${range.min} ${range.currency || targetCurrency}`,
+        !hadOffers && market.minPrice != null && `min ${market.minPrice}`,
+        !hadOffers && market.medianPrice != null && `median ${market.medianPrice}`
       ].filter(Boolean);
       const delivery = market.delivery?.note || market.deliveryNotes || market.deliveryNote || market.notes;
       const priceOf = (offer) => offer.approxPrice != null
         ? `≈ ${esc(offer.approxPrice)} ${esc(offer.approxCurrency || targetCurrency)} <span class="muted">(${esc(offer.price)} ${esc(offer.currency || '')})</span>`
         : `${esc(offer.price ?? offer.convertedPrice ?? '')} ${esc(offer.currency || targetCurrency)}`;
-      return `<article class="market-result"><h3>${esc(name)}</h3><div class="market-stats">${stats.map((stat) => esc(stat)).join(' · ') || 'Market results'}</div>${delivery ? `<p class="hint">${esc(delivery)}</p>` : ''}${candidates.length ? `<ul>${candidates.slice(0, 5).map((offer) => `<li class="compare-offer">${imageMarkup(offer, offer.shopName || offer.shopId || 'Shop', 'compare-image')}<span class="compare-offer-copy">${esc(decodeEntities(offer.name || offer.productName || 'Offer'))} <span class="muted">· ${esc(offer.shopName || offer.shopId || '')}</span> — ${priceOf(offer)}</span></li>`).join('')}</ul>` : '<p class="hint">No offers returned.</p>'}</article>`;
+      const offerContent = candidates.length
+        ? `<ul>${candidates.slice(0, 5).map((offer) => `<li class="compare-offer">${imageMarkup(offer, offer.shopName || offer.shopId || 'Shop', 'compare-image')}<span class="compare-offer-copy">${esc(decodeEntities(offer.name || offer.productName || 'Offer'))} <span class="muted">· ${esc(offer.shopName || offer.shopId || '')}</span> — ${priceOf(offer)}</span></li>`).join('')}</ul>`
+        : hadOffers
+          ? `<p class="hint">No close match for “${esc(query)}” in ${esc(name)} (${esc(offers.length - candidates.length)} unrelated offers hidden).</p>`
+          : '<p class="hint">No offers returned.</p>';
+      return `<article class="market-result"><h3>${esc(name)}</h3><div class="market-stats">${stats.map((stat) => esc(stat)).join(' · ') || 'Market results'}</div>${delivery ? `<p class="hint">${esc(delivery)}</p>` : ''}${offerContent}</article>`;
     }).join('') + (data?.note ? `<p class="hint">${esc(data.note)}</p>` : '') : '<p class="hint">No comparison rows returned.</p>';
   } catch (error) {
     resultsContainer.innerHTML = previousResults;
