@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   addSearchHistory, applyLiveDetails, callTool, checkoutSku, chunkLines, creditCost, EMPTY_RESULT_COSTS, formatCredits, freshnessLabel, getCachedShopInfo,
   getShopInfo, isRetryable, locationArgs, mapApiError, normalizeMarkets, parseMaxPrice, parseToolResponse,
-  isLowCredits, offerMatchesQuery, queryTokens, stockLabel, ZureqError
+  isLowCredits, offerMatchesQuery, otherMarketRows, queryTokens, stockLabel, ZureqError
 } from '../zureq.js';
 
 const originalChrome = globalThis.chrome;
@@ -30,6 +30,63 @@ test('matches comparison offers against every normalized query token', () => {
   assert.equal(matches('oliwa z oliwek', 'OLIWA Z OLIWEK EXTRA VIRGIN BIO 500 ml &#8211; X'), true);
   assert.equal(matches('chargers', 'Charger'), true);
   assert.equal(offerMatchesQuery([], 'any offer name'), true);
+});
+
+test('builds filtered rows for other markets and excludes the local market', () => {
+  const matchingOffer = {
+    name: 'Dog Food Chicken 2 kg',
+    shopName: 'Pets',
+    price: 10,
+    approxPrice: 7.5,
+    approxCurrency: 'USD'
+  };
+  const rows = otherMarketRows({
+    markets: [
+      { code: 'US', label: 'United States', offers: [{ name: 'Dog Food USA', price: 9 }] },
+      {
+        code: 'PL',
+        label: 'Poland',
+        delivery: { note: 'Ships to the US' },
+        offers: [
+          matchingOffer,
+          { name: 'ALOE VERA + VITAMIN E DEWY-FRESH!', shopName: 'Beauty', approxPrice: 0.99 }
+        ]
+      },
+      { code: 'AT', label: 'Austria', offers: [{ name: 'Hot Dog Ketchup (F)', price: 2 }] }
+    ]
+  }, 'US', queryTokens('dog food'));
+
+  assert.deepEqual(rows.map(({ key }) => key), ['PL', 'AT']);
+  assert.deepEqual(rows[0], {
+    key: 'PL',
+    label: 'Poland',
+    offer: matchingOffer,
+    hidden: 1,
+    delivery: 'Ships to the US'
+  });
+  assert.equal(rows[1].offer, null);
+  assert.equal(rows[1].hidden, 1);
+});
+
+test('chooses the cheapest matching offer by approxPrice when present', () => {
+  const higherApproxPrice = { name: 'Dog Food Chicken', price: 5, approxPrice: 12 };
+  const lowerApproxPrice = { name: 'Dog Food Beef', price: 20, approxPrice: 8 };
+  const [row] = otherMarketRows({
+    markets: [{ code: 'PL', offers: [higherApproxPrice, lowerApproxPrice] }]
+  }, 'US', queryTokens('dog food'));
+
+  assert.equal(row.offer, lowerApproxPrice);
+});
+
+test('chooses the cheapest matching offer by price when approxPrice is absent', () => {
+  const expensive = { name: 'Dog Food Chicken', price: 12 };
+  const cheap = { name: 'Dog Food Beef', price: '8.50' };
+  const [row] = otherMarketRows({
+    markets: [{ code: 'PL', offers: [expensive, cheap] }]
+  }, 'US', queryTokens('dog food'));
+
+  assert.equal(row.offer, cheap);
+  assert.equal(row.hidden, 0);
 });
 
 test('uses documented lower credit costs for empty search and comparison results', () => {

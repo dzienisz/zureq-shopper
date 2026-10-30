@@ -165,6 +165,11 @@ legend { margin-bottom: 8px; }
 .watch-tag { color: var(--accent-text); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .watch-actions { display: flex; gap: 6px; margin-top: 8px; }
 .watch-search-row { display: flex; justify-content: flex-end; margin: 8px 0; }
+.other-markets { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin: 8px 0 10px; background: #fff; }
+.other-markets h3 { margin: 0 0 5px; font-size: 12px; }
+.other-markets p { margin: 0; }
+.other-market-row { padding: 5px 0; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+.other-market-row + .other-market-row { border-top: 1px solid var(--line); }
 .notice.error { background: #fff; color: var(--danger); }
 .empty-state { text-align: center; padding: 35px 12px; }
 .empty-state p { color: var(--muted); margin: 8px 0 16px; }

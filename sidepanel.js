@@ -2,7 +2,7 @@ import {
   applyLiveDetails, TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool, chunkLines, creditCost,
   checkoutSku, formatCredits,
   freshnessLabel, getCachedMarkets, getCachedShopInfo, getSearchHistory,
-  getShopInfo, isLowCredits, locationArgs, normalizeMarkets, offerMatchesQuery, parseMaxPrice, queryTokens, stockLabel
+  getShopInfo, isLowCredits, locationArgs, normalizeComparison, normalizeMarkets, offerMatchesQuery, otherMarketRows, parseMaxPrice, queryTokens, stockLabel
 } from './zureq.js';
 import { groupListPicks, MAX_LIST_ITEMS, migrateListState, parseListInput } from './list.js';
 import { setBusy, skeletonHtml } from './loading.js';
@@ -12,6 +12,7 @@ const $ = (id) => document.getElementById(id);
 const state = {
   products: [], details: new Map(), history: [], markets: [], lastSearch: null,
   selectedMarkets: [], sessionCredits: 0, source: null, searching: false, comparing: false,
+  otherMarkets: null, backgroundCompare: true,
   list: { text: '', country: '', parts: [], productDetails: {}, running: false },
   listGroups: [],
   usage: {
@@ -22,6 +23,7 @@ const state = {
 let panelReady = false;
 let queuedPending = null;
 let handledPending = '';
+let otherMarketSequence = 0;
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const productKey = (product) => `${product.shopId}::${product.sku}`;
 const listDetailsRequests = new Map();
@@ -126,7 +128,7 @@ function showNoKey(missing) {
   if (state.usage.noKey) setUsagePopover(false);
   $('no-key').classList.toggle('hidden', !missing);
   if (missing) document.querySelectorAll('main > .panel').forEach((panel) => panel.classList.add('hidden'));
-  else ['search', 'compare', 'list', 'watch'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== activeTab()));
+  else ['search', 'list', 'watch'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== activeTab()));
   renderUsageBadge();
 }
 function handleError(error) {
@@ -248,12 +250,40 @@ function toggleDescription(button) {
   button.textContent = expanded ? 'Less' : 'More';
   button.setAttribute('aria-expanded', String(expanded));
 }
+function renderOtherMarkets() {
+  const result = state.otherMarkets;
+  if (!result) return '';
+  const heading = '<h3>Also in other markets</h3>';
+  if (result.status === 'loading') {
+    return `<section class="other-markets">${heading}<p class="muted">Checking ${esc((result.labels || []).join(', '))}…</p></section>`;
+  }
+  if (result.status === 'error') {
+    return `<section class="other-markets">${heading}<p class="muted">Couldn't check other markets.</p></section>`;
+  }
+  const rows = (result.rows || []).map((row) => {
+    const delivery = row.delivery
+      ? `<div class="muted">${esc(decodeEntities(row.delivery))}</div>`
+      : '';
+    if (!row.offer) {
+      return `<div class="other-market-row"><div>${esc(row.label)}: no close match</div>${delivery}</div>`;
+    }
+    const offer = row.offer;
+    const name = decodeEntities(offer.name || offer.productName || 'Offer');
+    const shop = offer.shopName || offer.shopId || 'Shop';
+    const price = offer.approxPrice != null ? offer.approxPrice : offer.price ?? offer.convertedPrice ?? '';
+    const currency = offer.approxPrice != null
+      ? offer.approxCurrency || offer.currency || ''
+      : offer.currency || '';
+    return `<div class="other-market-row"><div>${esc(row.label)}: ${esc(name)} · ${esc(shop)} — ≈ ${esc(price)} ${esc(currency)}</div>${delivery}</div>`;
+  }).join('');
+  return `<section class="other-markets">${heading}${rows}</section>`;
+}
 function renderProducts() {
   const sort = $('sort').value;
   const products = [...state.products];
   if (sort === 'price-asc') products.sort((a, b) => priceValue(a) - priceValue(b));
   if (sort === 'price-desc') products.sort((a, b) => priceValue(b) - priceValue(a));
-  $('search-results').innerHTML = products.length ? products.map((product) => {
+  const cards = products.length ? products.map((product) => {
     const key = productKey(product);
     const details = state.details.get(key);
     const shopName = product.shopName || product.shopId || 'Unknown shop';
@@ -268,13 +298,54 @@ function renderProducts() {
     const outOfStock = product.inStock === false ? '<span class="stock-chip">Out of stock</span>' : '';
     return `<article class="card" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}">${image}<div class="product-copy"><h3>${esc(decodeEntities(product.name))}</h3><div class="product-shop">${esc(shopName)}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}${previousPriceNote}${cheaper ? ' <span class="cheaper">cheaper</span>' : ''}</div>${outOfStock}</div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout</button><button data-action="watch">Watch</button></div>${detailHtml}</article>`;
   }).join('') : '<p class="hint">No products found. Try a broader query or another country.</p>';
-  if (products.length) {
-    $('search-results').insertAdjacentHTML('afterbegin', '<div class="watch-search-row"><button data-action="watch-search">Watch this search</button></div>');
+  const watchRow = products.length ? '<div class="watch-search-row"><button data-action="watch-search">Watch this search</button></div>' : '';
+  $('search-results').innerHTML = `${watchRow}${renderOtherMarkets()}${cards}`;
+}
+async function checkOtherMarkets(query, country, products, sequence) {
+  const localCountry = String(country || '').trim().toUpperCase();
+  if (state.backgroundCompare === false || !localCountry || ['EU', 'WORLD'].includes(localCountry) ||
+      !Array.isArray(products) || products.length === 0) return;
+  let settings;
+  try {
+    settings = await chrome.storage.sync.get({ backgroundCompare: true });
+  } catch {
+    return;
   }
+  if (sequence !== otherMarketSequence || settings.backgroundCompare === false) return;
+  state.backgroundCompare = settings.backgroundCompare !== false;
+  const markets = [
+    localCountry,
+    ...state.markets
+      .map((market) => String(market.code || '').trim().toUpperCase())
+      .filter((code) => code && code !== localCountry && !['EU', 'WORLD'].includes(code))
+  ].filter((code, index, all) => all.indexOf(code) === index).slice(0, 4);
+  if (markets.length < 2) return;
+  const labels = markets.slice(1).map((code) => state.markets.find((market) => market.code === code)?.label || code);
+  state.otherMarkets = { query, status: 'loading', rows: [], labels };
+  renderProducts();
+  try {
+    const currency = String(products[0]?.currency || 'USD').trim().toUpperCase() || 'USD';
+    const data = await tool('compare_markets', { query, markets, currency });
+    if (sequence !== otherMarketSequence) return;
+    state.otherMarkets = {
+      query,
+      status: 'done',
+      rows: otherMarketRows(data, localCountry, queryTokens(query)),
+      labels
+    };
+  } catch {
+    if (sequence !== otherMarketSequence) return;
+    state.otherMarkets = { query, status: 'error', rows: [], labels };
+  }
+  renderProducts();
 }
 async function search(event) {
   event?.preventDefault();
   if (state.searching) return;
+  const sequence = ++otherMarketSequence;
+  const hadOtherMarkets = Boolean(state.otherMarkets);
+  state.otherMarkets = null;
+  if (hadOtherMarkets) renderProducts();
   clearNotice();
   const query = $('query').value.trim();
   if (!query) return;
@@ -288,7 +359,6 @@ async function search(event) {
   Object.keys(args).forEach((key) => args[key] === undefined && delete args[key]);
   const button = event?.submitter || $('search-form').querySelector('[type="submit"]');
   const results = $('search-results');
-  const previousResults = results.innerHTML;
   state.searching = true;
   setBusy(button, true, 'Searching…');
   results.setAttribute('aria-busy', 'true');
@@ -301,8 +371,9 @@ async function search(event) {
     state.history = await addSearchHistory(query);
     renderHistory();
     renderProducts();
+    void checkOtherMarkets(query, state.lastSearch.country, state.products, sequence);
   } catch (error) {
-    results.innerHTML = previousResults;
+    renderProducts();
     handleError(error);
   } finally {
     state.searching = false;
@@ -702,9 +773,6 @@ function productFromCard(card) {
   return state.products.find((item) => String(item.shopId) === card.dataset.shopId && String(item.sku) === card.dataset.sku);
 }
 
-function normalizeComparison(data) {
-  return data?.markets || data?.results || data?.comparisons || (Array.isArray(data) ? data : []);
-}
 async function compare(event) {
   event?.preventDefault();
   if (state.comparing) return;
@@ -816,7 +884,7 @@ async function refreshUsage(force = false) {
 }
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach((button) => button.classList.toggle('active', button.dataset.tab === tab));
-  ['search', 'compare', 'list', 'watch'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== tab));
+  ['search', 'list', 'watch'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== tab));
   if (tab === 'watch') {
     clearAlerts().then(() => chrome.runtime.sendMessage({ type: 'zureq-clear-badge' })).catch(() => {});
     renderWatches();
@@ -956,25 +1024,21 @@ async function applyPending(pending) {
   const signature = `${pending.createdAt || ''}:${pending.mode || 'search'}:${pending.query}`;
   if (signature === handledPending) return;
   handledPending = signature;
-  if (pending.mode === 'compare') {
-    switchTab('compare');
-    $('compare-query').value = pending.query;
-    if (state.selectedMarkets.length >= 2) await compare({ preventDefault() {} });
-  } else {
-    switchTab('search');
-    if (pending.country != null) $('country').value = pending.country;
-    state.source = pending.source || null;
-    const source = state.source;
-    $('source-banner').classList.toggle('hidden', !source);
-    if (source) $('source-banner').textContent = `Comparing with ${source.site || 'this page'} price ${source.price != null ? `${source.price} ${source.currency || ''}` : ''}.`;
-    $('query').value = pending.query;
-    await search();
-  }
+  switchTab('search');
+  if (pending.country != null) $('country').value = pending.country;
+  state.source = pending.source || null;
+  const source = state.source;
+  $('source-banner').classList.toggle('hidden', !source);
+  if (source) $('source-banner').textContent = `Comparing with ${source.site || 'this page'} price ${source.price != null ? `${source.price} ${source.currency || ''}` : ''}.`;
+  $('query').value = pending.query;
+  await search();
   await clearPending();
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === 'sync' && changes.zureqApiKey) {
+  if (areaName === 'sync') {
+    if (changes.backgroundCompare) state.backgroundCompare = changes.backgroundCompare.newValue !== false;
+    if (!changes.zureqApiKey) return;
     const hasKey = Boolean(String(changes.zureqApiKey.newValue || '').trim());
     showNoKey(!hasKey);
     if (hasKey) {
@@ -1010,7 +1074,10 @@ async function init() {
   state.history = await getSearchHistory();
   renderHistory();
   try {
-    const settings = await chrome.storage.sync.get({ defaultCountry: '', defaultCurrency: 'PLN', zureqApiKey: '' });
+    const settings = await chrome.storage.sync.get({
+      defaultCountry: '', defaultCurrency: 'PLN', zureqApiKey: '', backgroundCompare: true
+    });
+    state.backgroundCompare = settings.backgroundCompare !== false;
     const hasKey = Boolean(String(settings.zureqApiKey || '').trim());
     showNoKey(!hasKey);
     $('currency').value = settings.defaultCurrency || 'PLN';

@@ -27,6 +27,7 @@ $('settings-form').addEventListener('submit', async (event) => {
     defaultCountry: $('default-country').value,
     defaultCurrency: $('default-currency').value.trim().toUpperCase() || 'PLN',
     watchInterval: $('watch-interval').value,
+    backgroundCompare: $('background-compare').checked,
     autoCompare: $('auto-compare').checked
   });
   status('Options saved.');
@@ -41,11 +42,15 @@ $('test-key').addEventListener('click', async () => {
   }
 });
 async function init() {
-  const settings = await chrome.storage.sync.get({ zureqApiKey: '', defaultCountry: '', defaultCurrency: 'PLN', watchInterval: '24', autoCompare: false });
+  const settings = await chrome.storage.sync.get({
+    zureqApiKey: '', defaultCountry: '', defaultCurrency: 'PLN', watchInterval: '24',
+    backgroundCompare: true, autoCompare: false
+  });
   $('api-key').value = settings.zureqApiKey;
   $('default-currency').value = settings.defaultCurrency;
   $('default-country').value = settings.defaultCountry;
   $('watch-interval').value = settings.watchInterval || '24';
+  $('background-compare').checked = settings.backgroundCompare !== false;
   $('auto-compare').checked = Boolean(settings.autoCompare);
   try {
     let markets = await getCachedMarkets();

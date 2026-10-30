@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 - Compare hides offers that don't match the search and says when a market has no close match.
+- Experiment: Search checks other markets in the background and shows the closest match from each; the Compare tab is removed.
 
 ## [1.4.1] - 2026-10-30
 

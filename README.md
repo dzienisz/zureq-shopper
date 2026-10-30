@@ -17,7 +17,7 @@ The extension stores the key in your browser's sync storage and only contacts `a
 - Search products by country, price, stock, and result limit.
 - Inspect product details and variants, including stock and freshness; expand long descriptions and visit shops already in cache.
 - Create checkout links for supported shops; List splits carts to each shop's line limit and falls back to per-item links when a cart fails.
-- Compare 2–4 markets in a selected currency.
+- Search in one market and see close matches from other markets.
 - Search selected page text from the context menu.
 - View current API usage and this session's estimated credit spend.
 - Save product and search watches for scheduled price-drop alerts.
@@ -31,8 +31,8 @@ The extension stores the key in your browser's sync storage and only contacts `a
 
 - Relevance-ranked product search with country, price, stock, and result-limit filters.
 - Product detail cards with variant selection and checkout-link creation.
-- Live price comparison across multiple markets with converted currencies.
-- Context-menu actions for searching or comparing selected text.
+- Background market checks with converted prices and close-match filtering.
+- Search selected page text from the context menu, with optional background market checks.
 - Usage tracking, recent searches, market caching, and an options page for local API-key management.
 
 ## Credit costs
@@ -46,6 +46,8 @@ The extension stores the key in your browser's sync storage and only contacts `a
 | `get_shop` | 1 (cached per shop for 24 hours) |
 | `list_shops`, `list_categories` | 1 |
 | `list_markets`, `get_usage` | Free |
+
+With background checking enabled, a successful search can trigger a compare (`compare_markets`) call: up to 6 extra credits, or 2 when every market is empty.
 
 Each List search costs up to 3 credits per item. Checkout checks shop support with `get_shop` before creating links; shop metadata is cached per shop for 24 hours. Each checkout-link request costs 1 credit, and cart links respect each shop's line limit.
 

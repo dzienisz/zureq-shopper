@@ -58,6 +58,42 @@ export function offerMatchesQuery(tokens, name) {
   )));
 }
 
+export function normalizeComparison(data) {
+  const markets = data?.markets || data?.results || data?.comparisons || (Array.isArray(data) ? data : []);
+  return Array.isArray(markets) ? markets : [];
+}
+
+export function otherMarketRows(compareData, localCountry, tokens) {
+  const localKey = String(localCountry || '').trim().toUpperCase();
+  return normalizeComparison(compareData).flatMap((market) => {
+    const marketCode = String(market?.key || market?.code || market?.country || market?.market || market?.id || '').trim();
+    const key = marketCode.toUpperCase();
+    if (key && key === localKey) return [];
+
+    const label = String(market?.label || market?.market || market?.country || market?.name || marketCode || 'Market');
+    const rawOffers = market?.offers || market?.candidates || market?.products || market?.items || [];
+    const offers = Array.isArray(rawOffers) ? rawOffers : [];
+    const matches = offers.filter((offer) => offerMatchesQuery(tokens, offer?.name || offer?.productName || ''));
+    const offerPrice = (offer) => {
+      const rawPrice = offer?.approxPrice != null ? offer.approxPrice : offer?.price;
+      if (rawPrice == null || String(rawPrice).trim() === '') return Number.POSITIVE_INFINITY;
+      const price = Number(rawPrice);
+      return Number.isFinite(price) ? price : Number.POSITIVE_INFINITY;
+    };
+    const offer = matches.reduce((cheapest, candidate) => (
+      !cheapest || offerPrice(candidate) < offerPrice(cheapest) ? candidate : cheapest
+    ), null);
+
+    return [{
+      key: key || label,
+      label,
+      offer,
+      hidden: offers.length - matches.length,
+      delivery: market?.delivery?.note
+    }];
+  });
+}
+
 export function creditCost(name, data) {
   if (name === 'search_products') {
     const products = data?.products || data?.items || [];
