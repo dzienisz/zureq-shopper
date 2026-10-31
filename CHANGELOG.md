@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-31
+
 - Removed: the Compare tab and the “Compare markets” context-menu entry. Market comparisons often matched different products in each country; Search in your own country is more reliable.
 
 ## [1.4.1] - 2026-10-30
