@@ -12,8 +12,7 @@ const autoCompareInFlight = new Map();
 let autoCompareWrite = Promise.resolve();
 
 const menus = [
-  { id: 'zureq-search', title: 'Search Zureq for “%s”' },
-  { id: 'zureq-compare', title: 'Compare markets for “%s”' }
+  { id: 'zureq-search', title: 'Search Zureq for “%s”' }
 ];
 
 function createMenus() {
@@ -125,7 +124,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const pending = {
     query: info.selectionText.trim(),
     tabId: tab.id,
-    mode: info.menuItemId === 'zureq-compare' ? 'compare' : 'search',
+    mode: 'search',
     createdAt: Date.now()
   };
   await savePendingAndOpen(pending, tab.id);

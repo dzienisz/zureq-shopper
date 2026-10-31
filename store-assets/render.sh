@@ -34,7 +34,6 @@ shot() {
 }
 
 shot shot1-search 1280 800
-shot shot2-compare 1280 800
 shot shot3-list 1280 800
 shot shot4-watch 1280 800
 shot shot5-shop-page 1280 800

@@ -9,20 +9,12 @@ import {
 const originalChrome = globalThis.chrome;
 const originalFetch = globalThis.fetch;
 
-test('uses documented lower credit costs for empty search and comparison results', () => {
-  assert.deepEqual(EMPTY_RESULT_COSTS, { search_products: 1, compare_markets: 2 });
+test('uses the documented lower credit cost for empty search results', () => {
+  assert.deepEqual(EMPTY_RESULT_COSTS, { search_products: 1 });
   assert.equal(creditCost('search_products', { products: [{ sku: 'one' }] }), 3);
   assert.equal(creditCost('search_products', { products: [] }), 1);
   assert.equal(creditCost('search_products', { items: [{ sku: 'one' }] }), 3);
   assert.equal(creditCost('search_products', { items: [] }), 1);
-  assert.equal(creditCost('compare_markets', { markets: [{ offers: [{ sku: 'one' }] }] }), 6);
-  assert.equal(creditCost('compare_markets', {
-    markets: [{ offerCount: 0 }, { items: [] }]
-  }), 2);
-  assert.equal(creditCost('compare_markets', { results: [{ candidates: [{ sku: 'one' }] }] }), 6);
-  assert.equal(creditCost('compare_markets', { comparisons: [{ products: [] }] }), 2);
-  assert.equal(creditCost('compare_markets', [{ offers: [] }, { offerCount: 0 }]), 2);
-  assert.equal(creditCost('compare_markets', { markets: [] }), 2);
   assert.equal(creditCost('missing_tool', {}), 0);
   assert.equal(creditCost('get_usage', {}), 0);
   assert.equal(creditCost('list_markets', {}), 0);
@@ -128,7 +120,7 @@ test('identifies retryable Zureq errors', () => {
     new ZureqError('RATE_LIMIT', 'rate limited'),
     new ZureqError('UNAVAILABLE', 'unavailable'),
     new ZureqError('API_ERROR', 'Shop did not answer in time'),
-    new ZureqError('API_ERROR', 'Market comparison timed out.'),
+    new ZureqError('API_ERROR', 'Search timed out.'),
     new ZureqError('API_ERROR', 'temporarily unavailable')
   ]) assert.equal(isRetryable(error), true);
   for (const error of [
@@ -215,19 +207,19 @@ test('retries a get_product shop timeout once', async () => {
   assert.equal(calls, 2);
 });
 
-test('retries a timed-out market comparison once', async () => {
+test('retries a timed-out search once', async () => {
   globalThis.chrome = { storage: { sync: { get: async () => ({ zureqApiKey: 'test-key' }) } } };
   let calls = 0;
   globalThis.fetch = async () => {
     calls += 1;
     return {
       json: async () => (calls === 1
-        ? { result: { isError: true, content: [{ type: 'text', text: 'Market comparison timed out.' }] } }
-        : { result: { structuredContent: { markets: [] } } })
+        ? { result: { isError: true, content: [{ type: 'text', text: 'Search timed out.' }] } }
+        : { result: { structuredContent: { products: [] } } })
     };
   };
 
-  assert.deepEqual(await callTool('compare_markets', {}), { markets: [] });
+  assert.deepEqual(await callTool('search_products', { query: 'coffee' }), { products: [] });
   assert.equal(calls, 2);
 });
 

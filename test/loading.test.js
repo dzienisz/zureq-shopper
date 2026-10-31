@@ -34,14 +34,6 @@ test('clamps skeleton counts to one through six and defaults invalid counts to t
   assert.equal([...skeletonHtml('product', Number.NaN).matchAll(/<article class="card skeleton"/g)].length, 3);
 });
 
-test('renders market skeletons with heading and three line bars', () => {
-  const html = skeletonHtml('market', 2);
-  assert.equal([...html.matchAll(/<article class="market-result skeleton"/g)].length, 2);
-  assert.equal([...html.matchAll(/class="skeleton-bar skeleton-heading"/g)].length, 2);
-  assert.equal([...html.matchAll(/class="skeleton-bar skeleton-line"/g)].length, 6);
-  assert.equal([...html.matchAll(/aria-hidden="true"/g)].length, 2);
-});
-
 test('sets and restores a button busy state', () => {
   const button = fakeButton('Search');
 
