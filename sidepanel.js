@@ -11,7 +11,7 @@ import { addWatch, clearAlerts, getWatches, removeWatch, searchBaseline } from '
 const $ = (id) => document.getElementById(id);
 const state = {
   products: [], details: new Map(), history: [], markets: [], lastSearch: null,
-  selectedMarkets: [], sessionCredits: 0, source: null, searching: false, comparing: false,
+  sessionCredits: 0, source: null, searching: false,
   list: { text: '', country: '', parts: [], productDetails: {}, running: false },
   listGroups: [],
   usage: {
@@ -126,7 +126,7 @@ function showNoKey(missing) {
   if (state.usage.noKey) setUsagePopover(false);
   $('no-key').classList.toggle('hidden', !missing);
   if (missing) document.querySelectorAll('main > .panel').forEach((panel) => panel.classList.add('hidden'));
-  else ['search', 'compare', 'list', 'watch'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== activeTab()));
+  else ['search', 'list', 'watch'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== activeTab()));
   renderUsageBadge();
 }
 function handleError(error) {
@@ -159,21 +159,9 @@ async function loadMarkets() {
   const country = $('country');
   country.innerHTML = '<option value="">Any country</option><option value="EU">EU</option>' +
     state.markets.filter((market) => market.code !== 'EU').map((market) => `<option value="${esc(market.code)}">${esc(market.label)}${market.count != null ? ` (${esc(market.count)})` : ''}</option>`).join('');
-  const defaults = state.markets.map((market) => market.code).filter((code) => !['EU', 'WORLD'].includes(code)).slice(0, 2);
-  state.selectedMarkets = defaults.length >= 2 ? defaults : ['EU', 'WORLD'];
-  renderMarketChips();
 }
 function renderHistory() {
   $('history').innerHTML = state.history.length ? `<span class="muted">Recent</span>${state.history.slice(0, 6).map((query) => `<button class="chip history-chip" data-query="${esc(query)}" title="${esc(query)}">${esc(query)}</button>`).join('')}` : '';
-}
-function renderMarketChips() {
-  const all = [{ code: 'EU', label: 'EU' }, { code: 'WORLD', label: 'World' }, ...state.markets.filter((market) => !['EU', 'WORLD'].includes(market.code))];
-  $('market-chips').innerHTML = all.map((market) => `<label class="chip market-chip"><input type="checkbox" value="${esc(market.code)}" ${state.selectedMarkets.includes(market.code) ? 'checked' : ''}>${esc(market.label)}</label>`).join('');
-  $('market-chips').querySelectorAll('input').forEach((input) => input.addEventListener('change', () => {
-    const checked = [...$('market-chips').querySelectorAll('input:checked')].map((item) => item.value);
-    if (checked.length > 4) input.checked = false;
-    else state.selectedMarkets = checked;
-  }));
 }
 function priceValue(product) {
   const value = Number(product.price ?? product.convertedPrice ?? product.minPrice);
@@ -702,54 +690,6 @@ function productFromCard(card) {
   return state.products.find((item) => String(item.shopId) === card.dataset.shopId && String(item.sku) === card.dataset.sku);
 }
 
-function normalizeComparison(data) {
-  return data?.markets || data?.results || data?.comparisons || (Array.isArray(data) ? data : []);
-}
-async function compare(event) {
-  event?.preventDefault();
-  if (state.comparing) return;
-  clearNotice();
-  if (state.selectedMarkets.length < 2 || state.selectedMarkets.length > 4) {
-    showNotice('Choose between 2 and 4 markets.', true);
-    return;
-  }
-  const button = event?.submitter || $('compare-form').querySelector('[type="submit"]');
-  const resultsContainer = $('compare-results');
-  const previousResults = resultsContainer.innerHTML;
-  state.comparing = true;
-  setBusy(button, true, 'Comparing…');
-  resultsContainer.setAttribute('aria-busy', 'true');
-  resultsContainer.innerHTML = skeletonHtml('market', state.selectedMarkets.length);
-  try {
-    const data = await tool('compare_markets', { query: $('compare-query').value.trim(), markets: state.selectedMarkets, currency: $('currency').value.trim().toUpperCase() || 'PLN' });
-    const results = normalizeComparison(data);
-    const targetCurrency = data?.currency || $('currency').value.toUpperCase();
-    resultsContainer.innerHTML = results.length ? results.map((market) => {
-      const name = market.label || market.market || market.country || market.name || market.key || market.code || 'Market';
-      const candidates = market.offers || market.candidates || market.products || market.items || [];
-      const range = market.priceRange;
-      const stats = [
-        market.shopCount != null && `${market.shopCount} shops`,
-        (market.offerCount ?? candidates.length) != null && `${market.offerCount ?? candidates.length} offers`,
-        range?.min != null && `from ${range.min} ${range.currency || targetCurrency}`,
-        market.minPrice != null && `min ${market.minPrice}`,
-        market.medianPrice != null && `median ${market.medianPrice}`
-      ].filter(Boolean);
-      const delivery = market.delivery?.note || market.deliveryNotes || market.deliveryNote || market.notes;
-      const priceOf = (offer) => offer.approxPrice != null
-        ? `≈ ${esc(offer.approxPrice)} ${esc(offer.approxCurrency || targetCurrency)} <span class="muted">(${esc(offer.price)} ${esc(offer.currency || '')})</span>`
-        : `${esc(offer.price ?? offer.convertedPrice ?? '')} ${esc(offer.currency || targetCurrency)}`;
-      return `<article class="market-result"><h3>${esc(name)}</h3><div class="market-stats">${stats.map((stat) => esc(stat)).join(' · ') || 'Market results'}</div>${delivery ? `<p class="hint">${esc(delivery)}</p>` : ''}${candidates.length ? `<ul>${candidates.slice(0, 5).map((offer) => `<li class="compare-offer">${imageMarkup(offer, offer.shopName || offer.shopId || 'Shop', 'compare-image')}<span class="compare-offer-copy">${esc(decodeEntities(offer.name || offer.productName || 'Offer'))} <span class="muted">· ${esc(offer.shopName || offer.shopId || '')}</span> — ${priceOf(offer)}</span></li>`).join('')}</ul>` : '<p class="hint">No offers returned.</p>'}</article>`;
-    }).join('') + (data?.note ? `<p class="hint">${esc(data.note)}</p>` : '') : '<p class="hint">No comparison rows returned.</p>';
-  } catch (error) {
-    resultsContainer.innerHTML = previousResults;
-    handleError(error);
-  } finally {
-    state.comparing = false;
-    if (button?.isConnected) setBusy(button, false);
-    resultsContainer.removeAttribute('aria-busy');
-  }
-}
 async function refreshUsage(force = false) {
   const usage = state.usage;
   const now = Date.now();
@@ -787,7 +727,7 @@ async function refreshUsage(force = false) {
 }
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach((button) => button.classList.toggle('active', button.dataset.tab === tab));
-  ['search', 'compare', 'list', 'watch'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== tab));
+  ['search', 'list', 'watch'].forEach((name) => $(`${name}-panel`).classList.toggle('hidden', name !== tab));
   if (tab === 'watch') {
     clearAlerts().then(() => chrome.runtime.sendMessage({ type: 'zureq-clear-badge' })).catch(() => {});
     renderWatches();
@@ -809,7 +749,6 @@ function refreshUsageOnFocus() {
 window.addEventListener('focus', refreshUsageOnFocus);
 document.addEventListener('visibilitychange', refreshUsageOnFocus);
 $('search-form').addEventListener('submit', search);
-$('compare-form').addEventListener('submit', compare);
 $('sort').addEventListener('change', renderProducts);
 $('usage-toggle').addEventListener('click', toggleUsagePopover);
 $('refresh-usage').addEventListener('click', () => refreshUsage(true));
@@ -927,20 +866,14 @@ async function applyPending(pending) {
   const signature = `${pending.createdAt || ''}:${pending.mode || 'search'}:${pending.query}`;
   if (signature === handledPending) return;
   handledPending = signature;
-  if (pending.mode === 'compare') {
-    switchTab('compare');
-    $('compare-query').value = pending.query;
-    if (state.selectedMarkets.length >= 2) await compare({ preventDefault() {} });
-  } else {
-    switchTab('search');
-    if (pending.country != null) $('country').value = pending.country;
-    state.source = pending.source || null;
-    const source = state.source;
-    $('source-banner').classList.toggle('hidden', !source);
-    if (source) $('source-banner').textContent = `Comparing with ${source.site || 'this page'} price ${source.price != null ? `${source.price} ${source.currency || ''}` : ''}.`;
-    $('query').value = pending.query;
-    await search();
-  }
+  switchTab('search');
+  if (pending.country != null) $('country').value = pending.country;
+  state.source = pending.source || null;
+  const source = state.source;
+  $('source-banner').classList.toggle('hidden', !source);
+  if (source) $('source-banner').textContent = `Comparing with ${source.site || 'this page'} price ${source.price != null ? `${source.price} ${source.currency || ''}` : ''}.`;
+  $('query').value = pending.query;
+  await search();
   await clearPending();
 }
 
@@ -981,10 +914,9 @@ async function init() {
   state.history = await getSearchHistory();
   renderHistory();
   try {
-    const settings = await chrome.storage.sync.get({ defaultCountry: '', defaultCurrency: 'PLN', zureqApiKey: '' });
+    const settings = await chrome.storage.sync.get({ defaultCountry: '', zureqApiKey: '' });
     const hasKey = Boolean(String(settings.zureqApiKey || '').trim());
     showNoKey(!hasKey);
-    $('currency').value = settings.defaultCurrency || 'PLN';
     if (hasKey) refreshUsage(true);
     await loadMarkets();
     $('list-country').innerHTML = $('country').innerHTML;

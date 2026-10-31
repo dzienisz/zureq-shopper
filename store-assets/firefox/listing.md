@@ -2,16 +2,16 @@
 
 ## Name
 
-ZUREQ Shopper — Network Product Search & Price Compare
+ZUREQ Shopper — Network Product Search & Price Alerts
 
 ## Summary
 
-Search 9,600+ independent shops on the ZUREQ network, compare markets, watch prices and get ready-to-pay cart links.
+Search 9,600+ independent shops on the ZUREQ network, watch prices and get ready-to-pay cart links.
 
 ## Detailed description
 
 ZUREQ Shopper gives you one focused shopping workspace for product discovery,
-market comparison, shopping lists, price alerts, and checkout links across
+shopping lists, price alerts, and checkout links across
 9,600+ independent shops in the US, Poland, and Austria. It connects to the
 ZUREQ MCP API with your own API key.
 
@@ -20,7 +20,7 @@ Featured integration on zureq.io (https://zureq.io).
 HOW IT WORKS
 
 1. Add your ZUREQ API key in Options.
-2. Search for a product or compare selected markets in the Firefox sidebar.
+2. Search for a product in the Firefox sidebar.
 3. Search a list of up to 10 items, or click the button on a supported shop
    product page.
 4. Review products, variants, prices, and checkout links before choosing where
@@ -31,9 +31,8 @@ FEATURES
 
 - Product search with country, price, stock, result-limit filters, image
   placeholders, product details, and variants.
-- Busy buttons and spinners show progress during longer actions; Search and
-  Compare also display skeleton results while loading.
-- Live comparison across 2–4 markets with delivery notes and converted prices.
+- Busy buttons and spinners show progress during longer actions; Search also
+  displays skeleton results while loading.
 - List searches up to 10 items with up to five candidates per item and
   per-shop totals.
 - Shop-aware checkout checks support and respects each shop's cart line limit,
@@ -51,7 +50,6 @@ CREDITS
 Bring your own ZUREQ API key. Tool calls use the following credits:
 
 search_products: 3 credits (1 if nothing is found)
-compare_markets: 6 credits (2 if every market is empty)
 get_product: 1 credit
 create_checkout_link: 1 credit
 get_shop: 1 credit (cached per shop for 24 hours)
@@ -76,8 +74,8 @@ Firefox 142 or later on desktop. A ZUREQ API key is required for API requests.
 
 SINGLE PURPOSE
 
-ZUREQ Shopper helps people discover products and compare shopping options
-across the ZUREQ network.
+ZUREQ Shopper helps people discover products, build shopping lists, and watch
+prices across the ZUREQ network.
 
 CATEGORY
 
@@ -98,6 +96,5 @@ Real Firefox screenshots (Firefox sidebar, live ZUREQ API, 1280×800), uploaded 
 | File | Caption |
 | --- | --- |
 | `store-assets/firefox/ff1-search.png` | Search the ZUREQ network from the Firefox sidebar |
-| `store-assets/firefox/ff2-compare.png` | Compare markets side by side |
 | `store-assets/firefox/ff3-list.png` | Search a shopping list and get per-shop totals |
 | `store-assets/firefox/ff4-watch.png` | Watch products and get notified when they get cheaper |

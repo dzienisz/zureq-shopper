@@ -1,6 +1,6 @@
 # ZUREQ Shopper
 
-ZUREQ Shopper is a small, zero-build extension for Chrome and Edge, with a generated Firefox version, for finding products, comparing markets, and creating checkout links through the [ZUREQ MCP API](https://zureq.io).
+ZUREQ Shopper is a small, zero-build extension for Chrome and Edge, with a generated Firefox version, for finding products, watching prices, and creating checkout links through the [ZUREQ MCP API](https://zureq.io).
 
 Featured integration on [zureq.io](https://zureq.io).
 
@@ -17,7 +17,6 @@ The extension stores the key in your browser's sync storage and only contacts `a
 - Search products by country, price, stock, and result limit.
 - Inspect product details and variants, including stock and freshness; expand long descriptions and visit shops already in cache.
 - Create checkout links for supported shops; List splits carts to each shop's line limit and falls back to per-item links when a cart fails.
-- Compare 2–4 markets in a selected currency.
 - Search selected page text from the context menu.
 - View current API usage and this session's estimated credit spend.
 - Save product and search watches for scheduled price-drop alerts.
@@ -31,8 +30,7 @@ The extension stores the key in your browser's sync storage and only contacts `a
 
 - Relevance-ranked product search with country, price, stock, and result-limit filters.
 - Product detail cards with variant selection and checkout-link creation.
-- Live price comparison across multiple markets with converted currencies.
-- Context-menu actions for searching or comparing selected text.
+- Context-menu search for selected text.
 - Usage tracking, recent searches, market caching, and an options page for local API-key management.
 
 ## Credit costs
@@ -40,7 +38,6 @@ The extension stores the key in your browser's sync storage and only contacts `a
 | Tool | Credits |
 | --- | ---: |
 | `search_products` | 3 credits (1 if nothing is found) |
-| `compare_markets` | 6 credits (2 if every market is empty) |
 | `get_product` | 1 |
 | `create_checkout_link` | 1 |
 | `get_shop` | 1 (cached per shop for 24 hours) |

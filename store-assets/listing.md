@@ -2,18 +2,18 @@
 
 ## Store title
 
-ZUREQ Shopper — Network Product Search & Price Compare
+ZUREQ Shopper — Network Product Search & Price Alerts
 
 ## Summary
 
-Search 9,600+ independent shops across the US, Poland, and Austria; compare markets, watch prices, and get ready-to-pay cart links.
+Search 9,600+ independent shops on the ZUREQ network, watch prices and get ready-to-pay cart links.
 
 ## Detailed description
 
 WHAT IT DOES
 
 ZUREQ Shopper gives you one focused shopping workspace for product discovery,
-market comparison, shopping lists, price alerts, and checkout links across
+shopping lists, price alerts, and checkout links across
 9,600+ independent shops in the US, Poland, and Austria. It connects to the
 Zureq MCP API with your own API key.
 
@@ -22,7 +22,7 @@ Featured integration on zureq.io (https://zureq.io).
 HOW IT WORKS
 
 1. Add your Zureq API key in Options.
-2. Search for a product or compare selected markets in the side panel.
+2. Search for a product in the side panel.
 3. Search a list of up to 10 items, or click the button on a supported shop
    product page.
 4. Review products, variants, prices, and checkout links before choosing where
@@ -33,9 +33,8 @@ FEATURES
 
 - Product search with country, price, stock, result-limit filters, image
   placeholders, product details, and variants.
-- Busy buttons and spinners show progress during longer actions; Search and
-  Compare also display skeleton results while loading.
-- Live comparison across 2–4 markets with delivery notes and converted prices.
+- Busy buttons and spinners show progress during longer actions; Search also
+  displays skeleton results while loading.
 - List searches up to 10 items with up to five candidates per item and
   per-shop totals.
 - Shop-aware checkout checks support and respects each shop's cart line limit,
@@ -53,7 +52,6 @@ CREDITS
 Bring your own Zureq API key. Tool calls use the following credits:
 
 search_products: 3 credits (1 if nothing is found)
-compare_markets: 6 credits (2 if every market is empty)
 get_product: 1 credit
 create_checkout_link: 1 credit
 get_shop: 1 credit (cached per shop for 24 hours)
@@ -78,18 +76,17 @@ Chrome 114 or later on desktop. A Zureq API key is required for API requests.
 
 SINGLE PURPOSE
 
-ZUREQ Shopper helps people discover products and compare shopping options
-across the Zureq network.
+ZUREQ Shopper helps people discover products, build shopping lists, and watch
+prices across the Zureq network.
 
 PERMISSION JUSTIFICATIONS
 
 storage: Saves the API key in sync storage and search history, list state, and
 market cache in local storage.
 
-contextMenus: Adds search and market-comparison actions for text selected by
-the user.
+contextMenus: Adds a search action for text selected by the user.
 
-sidePanel: Provides the Search, Compare, List, and Watch workspace; remaining
+sidePanel: Provides the Search, List, and Watch workspace; remaining
 credits are shown in the header.
 
 alarms: Runs the user's saved price watches on the interval chosen in Options
@@ -114,7 +111,6 @@ Shopping
 | File | Size | Store slot |
 | --- | --- | --- |
 | shot1-search.png | 1280×800 | Screenshot 1 |
-| shot2-compare.png | 1280×800 | Screenshot 2 |
 | shot3-list.png | 1280×800 | Screenshot 3 |
 | shot4-watch.png | 1280×800 | Screenshot 4 |
 | shot5-shop-page.png | 1280×800 | Screenshot 5 |

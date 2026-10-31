@@ -24,16 +24,6 @@ export function skeletonHtml(kind, count) {
       </article>`).join('');
   }
 
-  if (kind === 'market') {
-    return Array.from({ length: itemCount }, () => `
-      <article class="market-result skeleton" aria-hidden="true">
-        <span class="skeleton-bar skeleton-heading"></span>
-        <span class="skeleton-bar skeleton-line"></span>
-        <span class="skeleton-bar skeleton-line"></span>
-        <span class="skeleton-bar skeleton-line"></span>
-      </article>`).join('');
-  }
-
   throw new TypeError(`Unsupported skeleton kind: ${kind}`);
 }
 

@@ -7,13 +7,15 @@ const event = (listeners = []) => ({
   }
 });
 
-test('registers the anonymous uninstall survey URL once', async () => {
+test('registers the anonymous uninstall survey URL and recreates only the Search menu', async () => {
   const calls = [];
   const actionListeners = [];
   const panelBehaviorCalls = [];
+  const installListeners = [];
+  const menuCalls = [];
   globalThis.chrome = {
     runtime: {
-      onInstalled: event(),
+      onInstalled: event(installListeners),
       onStartup: event(),
       onMessage: event(),
       setUninstallURL(url) {
@@ -22,8 +24,11 @@ test('registers the anonymous uninstall survey URL once', async () => {
     },
     contextMenus: {
       onClicked: event(),
-      removeAll: () => Promise.resolve(),
-      create() {}
+      removeAll: () => {
+        menuCalls.push('removeAll');
+        return Promise.resolve();
+      },
+      create: (menu) => menuCalls.push(menu)
     },
     sidePanel: {
       setPanelBehavior: (behavior) => {
@@ -56,12 +61,18 @@ test('registers the anonymous uninstall survey URL once', async () => {
 
   try {
     await import(`../background.js?uninstall-survey=${Date.now()}`);
+    installListeners[0]();
+    await new Promise((resolve) => setImmediate(resolve));
   } finally {
     delete globalThis.chrome;
     delete globalThis.browser;
   }
 
   assert.deepEqual(panelBehaviorCalls, [{ openPanelOnActionClick: true }]);
+  assert.deepEqual(menuCalls, [
+    'removeAll',
+    { id: 'zureq-search', title: 'Search Zureq for “%s”', contexts: ['selection'] }
+  ]);
   assert.equal(actionListeners.length, 0);
   assert.equal(calls.length, 1);
   assert.equal(

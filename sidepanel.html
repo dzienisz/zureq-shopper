@@ -30,7 +30,6 @@
   </header>
   <nav class="tabs" aria-label="Main views">
     <button class="tab active" data-tab="search">Search</button>
-    <button class="tab" data-tab="compare">Compare</button>
     <button class="tab" data-tab="list">List</button>
     <button class="tab" data-tab="watch">Watch</button>
   </nav>
@@ -59,17 +58,6 @@
       <div id="history" class="chips"></div>
       <p class="hint">Results are relevance-ranked; the cheapest rows are often accessories.</p>
       <div id="search-results"></div>
-    </section>
-
-    <section id="compare-panel" class="panel hidden">
-      <form id="compare-form">
-        <label>Product or query<input id="compare-query" required placeholder="What would you like to compare?"></label>
-        <fieldset><legend>Markets <span class="muted">(choose 2–4)</span></legend><div id="market-chips" class="chips market-chips"></div></fieldset>
-        <label>Currency<input id="currency" value="PLN" maxlength="3"></label>
-        <button class="primary full" type="submit">Compare markets</button>
-      </form>
-      <p class="hint">Comparisons run live across markets and can take a while or time out on the API side; retry with fewer markets if so.</p>
-      <div id="compare-results"></div>
     </section>
 
     <section id="list-panel" class="panel hidden">

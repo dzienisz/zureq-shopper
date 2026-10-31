@@ -145,18 +145,6 @@ textarea { display: block; width: 100%; resize: vertical; margin-top: 5px; borde
 fieldset { border: 0; padding: 0; margin: 14px 0 0; }
 legend { margin-bottom: 8px; }
 .section-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-.market-result { border: 1px solid var(--line); border-radius: 14px; padding: 10px; margin-top: 9px; background: #fff; }
-.market-result h3 { margin: 0 0 6px; font-size: 14px; }
-.skeleton-heading { width: 42%; height: 14px; margin-bottom: 2px; }
-.skeleton-line { width: 100%; margin-top: 8px; }
-.skeleton-line:nth-of-type(3) { width: 86%; }
-.skeleton-line:nth-of-type(4) { width: 68%; }
-.market-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 11px; }
-.market-result ul { margin: 8px 0 0; padding-left: 17px; color: var(--muted); font-size: 11px; }
-.compare-offer { display: flex; align-items: center; gap: 8px; }
-.compare-image { width: 36px; height: 36px; flex: 0 0 36px; border-radius: 6px; background: var(--panel); object-fit: cover; }
-.compare-image.image-placeholder { font-size: 14px; }
-.compare-offer-copy { min-width: 0; overflow-wrap: anywhere; }
 .notice { border-radius: 8px; padding: 9px 10px; margin-bottom: 12px; background: #fff4dc; color: #815700; line-height: 1.35; }
 .source-banner { border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; background: var(--panel); color: var(--ink); font-size: 11px; line-height: 1.35; }
 .watch-item { border: 1px solid var(--line); border-radius: 14px; padding: 10px; margin: 9px 0; background: #fff; }

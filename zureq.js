@@ -3,7 +3,6 @@ let requestId = 0;
 
 export const TOOL_COSTS = Object.freeze({
   search_products: 3,
-  compare_markets: 6,
   get_product: 1,
   create_checkout_link: 1,
   get_shop: 1,
@@ -14,24 +13,13 @@ export const TOOL_COSTS = Object.freeze({
 });
 
 export const EMPTY_RESULT_COSTS = Object.freeze({
-  search_products: 1,
-  compare_markets: 2
+  search_products: 1
 });
 
 export function creditCost(name, data) {
   if (name === 'search_products') {
     const products = data?.products || data?.items || [];
     if (products.length === 0) return EMPTY_RESULT_COSTS.search_products;
-  }
-  if (name === 'compare_markets') {
-    const markets = data?.markets || data?.results || data?.comparisons || (Array.isArray(data) ? data : []);
-    const hasNoOffers = (market) => {
-      const offers = market?.offers || market?.candidates || market?.products || market?.items || [];
-      return Number(market?.offerCount ?? offers.length) === 0;
-    };
-    if (Array.isArray(markets) && markets.every(hasNoOffers)) {
-      return EMPTY_RESULT_COSTS.compare_markets;
-    }
   }
   return TOOL_COSTS[name] || 0;
 }
