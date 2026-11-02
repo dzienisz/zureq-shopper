@@ -63,6 +63,7 @@ function normalizeWatch(partial = {}) {
       currency: String(partial.baseline?.currency || '').toUpperCase()
     },
     targetPrice: Number.isFinite(targetPrice) && targetPrice > 0 ? targetPrice : null,
+    targetHit: Boolean(partial.targetHit),
     lastPrice: partial.lastPrice ?? null,
     lastCurrency: partial.lastCurrency ?? null,
     lastCheckedAt: partial.lastCheckedAt ?? null,
@@ -106,6 +107,7 @@ export function applyResult(watch, evaluation, now = Date.now()) {
       shopId: best.shopId,
       sku: best.sku
     } : null,
+    targetHit: watch.targetPrice != null ? Boolean(evaluation?.hitTarget) : false,
     alert: Boolean(watch.targetPrice != null ? evaluation?.hitTarget : evaluation?.cheaper)
   };
 }
@@ -144,7 +146,7 @@ export async function setWatchTarget(id, price) {
   const targetPrice = price == null ? null : Number(price);
   const normalizedTarget = Number.isFinite(targetPrice) && targetPrice > 0 ? targetPrice : null;
   const next = (await getWatches()).map((watch) => watch.id === id
-    ? { ...watch, targetPrice: normalizedTarget, alert: false }
+    ? { ...watch, targetPrice: normalizedTarget, alert: false, targetHit: false }
     : watch);
   await saveWatches(next);
   return next;
@@ -168,8 +170,13 @@ export async function checkWatchlist(callTool, { notify = () => {}, setBadge = (
     try {
       const data = await callTool('search_products', args);
       const updated = applyResult(watch, evaluateWatch(watch, data?.products || []));
-      const newLow = updated.alert && (watch.lastPrice == null || updated.lastPrice < watch.lastPrice);
-      updated.alert = Boolean(newLow || (watch.alert && updated.alert));
+      if (watch.targetPrice != null) {
+        const hitTarget = Boolean(updated.targetHit);
+        updated.alert = hitTarget && (!watch.targetHit || watch.alert);
+      } else {
+        const newLow = updated.alert && (watch.lastPrice == null || updated.lastPrice < watch.lastPrice);
+        updated.alert = Boolean(newLow || (watch.alert && updated.alert));
+      }
       next[index] = updated;
       checked += 1;
       if (!watch.alert && updated.alert) newlyAlerting.push(updated);
