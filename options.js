@@ -2,6 +2,7 @@ import { ZureqError, callTool, cacheMarkets, getCachedMarkets, normalizeMarkets 
 import { connect, disconnect, isConnected } from './auth.js';
 
 const $ = (id) => document.getElementById(id);
+let countriesLoadPromise = null;
 const status = (message, error = false) => {
   $('status').textContent = message;
   $('status').className = error ? 'error' : '';
@@ -37,6 +38,25 @@ function fillCountries(data) {
     select.append(option);
   }
 }
+function loadCountries() {
+  if (!countriesLoadPromise) {
+    countriesLoadPromise = (async () => {
+      const settings = await chrome.storage.sync.get({ zureqApiKey: '', defaultCountry: '' });
+      try {
+        let markets = await getCachedMarkets();
+        if (!markets && (String(settings.zureqApiKey || '').trim() || await isConnected())) {
+          markets = await callTool('list_markets', {});
+          await cacheMarkets(markets);
+        }
+        if (markets) fillCountries(markets);
+      } catch {}
+      $('default-country').value = settings.defaultCountry;
+    })().finally(() => {
+      countriesLoadPromise = null;
+    });
+  }
+  return countriesLoadPromise;
+}
 $('toggle-key').addEventListener('click', () => {
   const input = $('api-key');
   input.type = input.type === 'password' ? 'text' : 'password';
@@ -47,7 +67,7 @@ $('connect-account').addEventListener('click', async () => {
   try {
     await connect();
     status('');
-    await renderAccount();
+    await Promise.all([renderAccount(), loadCountries()]);
   } catch (error) {
     status(error instanceof ZureqError ? error.message : 'Could not sign in with ZUREQ. Please try again.', true);
   } finally {
@@ -90,24 +110,21 @@ async function init() {
   $('watch-interval').value = settings.watchInterval || '24';
   $('auto-compare').checked = Boolean(settings.autoCompare);
   await renderAccount();
-  try {
-    let markets = await getCachedMarkets();
-    if (!markets && (settings.zureqApiKey || await isConnected())) {
-      markets = await callTool('list_markets', {});
-      await cacheMarkets(markets);
-    }
-    if (markets) fillCountries(markets);
-    $('default-country').value = settings.defaultCountry;
-  } catch {}
+  await loadCountries();
 }
+function refreshAccountWhenVisible() {
+  if (!document.hidden) renderAccount();
+}
+window.addEventListener('focus', refreshAccountWhenVisible);
+document.addEventListener('visibilitychange', refreshAccountWhenVisible);
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (
-    (areaName === 'local'
-      && changes.zureqAuth
-      && Boolean(changes.zureqAuth.oldValue?.refresh) !== Boolean(changes.zureqAuth.newValue?.refresh))
-    || (areaName === 'sync' && changes.zureqApiKey)
-  ) {
+  if (areaName === 'local' && changes.zureqAuth
+    && Boolean(changes.zureqAuth.oldValue?.refresh) !== Boolean(changes.zureqAuth.newValue?.refresh)) {
+    status('');
     renderAccount();
+    if (changes.zureqAuth.newValue?.refresh) loadCountries();
+    return;
   }
+  if (areaName === 'sync' && changes.zureqApiKey) renderAccount();
 });
 init();

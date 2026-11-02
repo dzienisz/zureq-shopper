@@ -958,8 +958,16 @@ async function updateCredentialState() {
     state.usage.error = false;
     refreshUsage(true);
     try {
+      const selectedCountry = $('country').value;
+      const selectedListCountry = $('list-country').value;
       await loadMarkets();
       $('list-country').replaceChildren(...[...$('country').options].map((option) => option.cloneNode(true)));
+      if ([...$('country').options].some((option) => option.value === selectedCountry)) {
+        $('country').value = selectedCountry;
+      }
+      if ([...$('list-country').options].some((option) => option.value === selectedListCountry)) {
+        $('list-country').value = selectedListCountry;
+      }
     } catch (error) {
       handleError(error);
     }
