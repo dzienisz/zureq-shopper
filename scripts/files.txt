@@ -1,6 +1,7 @@
 manifest.json
 background.js
 zureq.js
+auth.js
 list.js
 loading.js
 autocompare.js

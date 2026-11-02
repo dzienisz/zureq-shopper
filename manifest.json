@@ -4,7 +4,7 @@
   "version": "1.6.0",
   "description": "Search 9,600+ independent shops on the ZUREQ network, watch prices and get ready-to-pay cart links.",
   "minimum_chrome_version": "114",
-  "permissions": ["storage", "contextMenus", "sidePanel", "alarms", "notifications"],
+  "permissions": ["storage", "contextMenus", "sidePanel", "alarms", "notifications", "identity"],
   "host_permissions": ["https://api.zureq.io/*"],
   "content_scripts": [
     {

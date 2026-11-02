@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- Add “Connect with ZUREQ” sign-in with local-only tokens; API keys remain available as a fallback.
+
 ## [1.6.0] - 2026-11-02
 
 - A failed search no longer leaves the previous search's results on screen.

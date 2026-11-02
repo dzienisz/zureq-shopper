@@ -18,6 +18,7 @@ test('generates the Firefox manifest without mutating the Chrome manifest', asyn
   assert.equal(firefox.options_page, undefined);
   assert.equal(firefox.background.service_worker, undefined);
   assert.equal(firefox.permissions.includes('sidePanel'), false);
+  assert.equal(firefox.permissions.includes('identity'), true);
   assert.deepEqual(firefox.sidebar_action, {
     default_panel: 'sidepanel.html',
     default_title: 'ZUREQ Shopper',

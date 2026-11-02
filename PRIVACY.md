@@ -2,11 +2,13 @@
 
 ZUREQ Shopper is designed to keep personal shopping data under your control.
 
-- Your ZUREQ API key is stored only in the browser's extension storage
-  (`chrome.storage.sync`).
-- The extension makes network calls only to `api.zureq.io`. Product queries,
-  selected market codes, and shop IDs/SKUs are sent there only to fulfil the
-  requests you make.
+- Your ZUREQ API key is stored in browser sync storage
+  (`chrome.storage.sync`). OAuth sign-in tokens are stored only in this
+  browser's local extension storage (`chrome.storage.local`); they are not
+  synced.
+- Product queries, selected market codes, and shop IDs/SKUs are sent to
+  `api.zureq.io` only to fulfil the requests you make. `chat.zureq.io` is
+  contacted only for sign-in, token refresh, and disconnect.
 - Search history, the current build state, and the market list cache are stored
   in the browser's extension storage (`chrome.storage.local`).
 - The watchlist is stored locally, and its scheduled checks send watch queries

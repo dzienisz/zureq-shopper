@@ -9,13 +9,24 @@
 <body>
   <main class="settings">
     <h1 class="brand-lockup" aria-label="ZUREQ Shopper"><img src="icons/zureq-mark.svg" width="28" height="28" alt=""><span class="brand-name">ZUREQ</span><span class="brand-product">Shopper</span></h1>
+    <section class="account-card" aria-labelledby="account-heading">
+      <h2 id="account-heading">ZUREQ account</h2>
+      <p id="account-status" role="status" aria-live="polite">Not connected to ZUREQ.</p>
+      <p id="account-hint" class="hint">Sign in with your ZUREQ account (Google works). Searches use your own ZUREQ credits.</p>
+      <button class="primary" id="connect-account" type="button">Connect with ZUREQ</button>
+      <button class="secondary hidden" id="disconnect-account" type="button">Disconnect</button>
+    </section>
     <h2>Options</h2>
-    <p class="intro">Your key is stored in your browser's sync storage and is only sent to api.zureq.io.</p>
+    <p class="intro">API keys are stored in browser sync storage; sign-in tokens stay in this browser's local storage. Requests go to api.zureq.io, with chat.zureq.io used only for sign-in, token refresh, and disconnect.</p>
     <form id="settings-form">
-      <label>API key
-        <div class="key-row"><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your Zureq key"><button type="button" id="toggle-key" class="secondary">Show</button></div>
-      </label>
-      <button type="button" id="test-key" class="secondary">Test connection</button>
+      <details id="api-key-details">
+        <summary>Use an API key instead</summary>
+        <p id="saved-key-hint" class="hint hidden">Your ZUREQ connection is used first when you're connected.</p>
+        <label>API key
+          <div class="key-row"><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your ZUREQ key"><button type="button" id="toggle-key" class="secondary">Show</button></div>
+        </label>
+        <button type="button" id="test-key" class="secondary">Test connection</button>
+      </details>
       <label>Default country<select id="default-country"><option value="">Any country</option><option value="EU">EU</option></select></label>
       <label>Watch check interval<select id="watch-interval">
         <option value="6">Every 6 hours</option>

@@ -1,3 +1,5 @@
+import { getAccessToken, isConnected, refreshAccessToken } from './auth.js';
+
 const API_URL = 'https://api.zureq.io/mcp';
 let requestId = 0;
 
@@ -190,26 +192,54 @@ async function getApiKey() {
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function callTool(name, args = {}, options = {}) {
-  const key = options.apiKey === undefined ? await getApiKey() : String(options.apiKey || '').trim();
-  if (!key) throw new ZureqError('NO_KEY', 'Add your Zureq API key in Options to get started.');
+  let credential;
+  let oauth = false;
+  if (options.apiKey !== undefined) {
+    credential = String(options.apiKey || '').trim();
+  } else if (await isConnected()) {
+    credential = await getAccessToken();
+    oauth = true;
+  } else {
+    credential = await getApiKey();
+  }
+  if (!credential) {
+    throw new ZureqError('NO_KEY', 'Connect with ZUREQ or add an API key in Options to get started.');
+  }
+
   const maxAttempts = options.retryRateLimit === false ? 1 : 2;
-  let attempt = 0;
-  while (attempt < maxAttempts) {
-    attempt += 1;
+  let rateAttempt = 0;
+  let oauthRetried = false;
+  let bearer = credential;
+  let body;
+  while (rateAttempt < maxAttempts) {
+    rateAttempt += 1;
+    body ||= JSON.stringify({
+      jsonrpc: '2.0',
+      id: ++requestId,
+      method: 'tools/call',
+      params: { name, arguments: args }
+    });
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${key}`,
+        Authorization: `Bearer ${bearer}`,
         'Content-Type': 'application/json',
         Accept: 'application/json, text/event-stream'
       },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: ++requestId,
-        method: 'tools/call',
-        params: { name, arguments: args }
-      })
+      body
     });
+    if (oauth && response.status === 401) {
+      if (oauthRetried) {
+        await chrome.storage.local.remove('zureqAuth');
+        throw new ZureqError('NO_KEY', 'Your ZUREQ sign-in has ended. Connect again to continue.');
+      }
+      oauthRetried = true;
+      bearer = await refreshAccessToken(bearer);
+      rateAttempt -= 1;
+      continue;
+    }
+    body = null;
+
     let payload;
     let responseError;
     try {
@@ -223,7 +253,7 @@ export async function callTool(name, args = {}, options = {}) {
       if (responseError) throw responseError;
       return parseToolResponse(payload);
     } catch (error) {
-      if (isRetryable(error) && attempt < maxAttempts) {
+      if (isRetryable(error) && rateAttempt < maxAttempts) {
         await delay(2000);
         continue;
       }

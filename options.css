@@ -28,6 +28,16 @@ h2 { margin: 26px 0 8px; font-size: 21px; }
 .brand-name { color: var(--ink); font-size: 12px; font-weight: 600; letter-spacing: .14em; }
 .brand-product { color: var(--muted); font-size: 14px; font-weight: 400; letter-spacing: normal; }
 .intro { color: var(--muted); line-height: 1.5; margin-bottom: 25px; }
+.account-card { padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.account-card h2 { margin: 0 0 8px; font-size: 18px; }
+#account-status { margin: 0 0 8px; font-weight: 700; }
+#account-hint { margin: 0 0 12px; }
+#disconnect-account { width: 100%; }
+details { margin: 0 0 18px; }
+details summary { color: var(--accent-text); cursor: pointer; font-weight: 700; }
+details[open] summary { margin-bottom: 10px; }
+details .hint { margin-top: 0; }
+.hidden { display: none !important; }
 label { color: var(--muted); display: block; font-size: 12px; font-weight: 700; margin: 17px 0; }
 input, select { width: 100%; margin-top: 6px; padding: 11px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: #fff; font: inherit; }
 input:focus, select:focus { border-color: var(--accent-deep); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-deep) 20%, transparent); }
