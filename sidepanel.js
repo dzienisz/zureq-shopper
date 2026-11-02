@@ -6,6 +6,7 @@ import {
 } from './zureq.js';
 import { groupListPicks, MAX_LIST_ITEMS, migrateListState, parseListInput } from './list.js';
 import { setBusy, skeletonHtml } from './loading.js';
+import { connect, isConnected } from './auth.js';
 import {
   addWatch, clearAlerts, getWatches, historyPolyline, historyStats, removeWatch, searchBaseline, setWatchTarget
 } from './watchlist.js';
@@ -71,14 +72,14 @@ function renderUsageBadge() {
   const badge = $('usage-toggle');
   if (!badge) return;
   const label = usage.noKey
-    ? 'Add key'
+    ? 'Connect'
     : usage.error
       ? '—'
       : Number.isFinite(usage.remaining)
         ? `${formatCredits(usage.remaining)} left`
         : usage.loading ? '…' : '—';
   badge.textContent = label;
-  badge.setAttribute('aria-label', usage.noKey ? 'Add API key' : `Usage: ${label}`);
+  badge.setAttribute('aria-label', usage.noKey ? 'Connect ZUREQ' : `Usage: ${label}`);
   badge.setAttribute('aria-expanded', String(usage.open && !usage.noKey));
   badge.classList.toggle('low-credit', !usage.noKey && !usage.error && isLowCredits(usage.remaining, usage.included));
 }
@@ -779,6 +780,19 @@ $('usage-toggle').addEventListener('click', toggleUsagePopover);
 $('refresh-usage').addEventListener('click', () => refreshUsage(true));
 $('open-options').addEventListener('click', () => chrome.runtime.openOptionsPage());
 $('no-key-options').addEventListener('click', () => chrome.runtime.openOptionsPage());
+$('no-key-connect').addEventListener('click', async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    await connect();
+    clearNotice();
+    await updateCredentialState();
+  } catch (error) {
+    showNotice(error instanceof ZureqError ? error.message : 'Could not sign in with ZUREQ. Please try again.', true);
+  } finally {
+    button.disabled = false;
+  }
+});
 $('history').addEventListener('click', (event) => { const button = event.target.closest('.history-chip'); if (button) { $('query').value = button.dataset.query; search(event); } });
 $('search-results').addEventListener('click', (event) => {
   const button = event.target.closest('[data-action]');
@@ -932,25 +946,52 @@ async function applyPending(pending) {
   await clearPending();
 }
 
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === 'sync' && changes.zureqApiKey) {
-    const hasKey = Boolean(String(changes.zureqApiKey.newValue || '').trim());
-    showNoKey(!hasKey);
-    if (hasKey) {
-      clearNotice();
-      state.usage.error = false;
-      refreshUsage(true);
-    } else {
-      state.usage.remaining = null;
-      state.usage.included = null;
-      state.usage.used = null;
-      state.usage.plan = '—';
-      state.usage.period = '—';
-      state.usage.error = false;
-      renderUsagePopover();
+async function updateCredentialState() {
+  const [settings, connected] = await Promise.all([
+    chrome.storage.sync.get({ zureqApiKey: '' }),
+    isConnected()
+  ]);
+  const hasCredential = connected || Boolean(String(settings.zureqApiKey || '').trim());
+  showNoKey(!hasCredential);
+  if (hasCredential) {
+    clearNotice();
+    state.usage.error = false;
+    refreshUsage(true);
+    try {
+      const selectedCountry = $('country').value;
+      const selectedListCountry = $('list-country').value;
+      await loadMarkets();
+      $('list-country').replaceChildren(...[...$('country').options].map((option) => option.cloneNode(true)));
+      if ([...$('country').options].some((option) => option.value === selectedCountry)) {
+        $('country').value = selectedCountry;
+      }
+      if ([...$('list-country').options].some((option) => option.value === selectedListCountry)) {
+        $('list-country').value = selectedListCountry;
+      }
+    } catch (error) {
+      handleError(error);
     }
     return;
   }
+  state.usage.remaining = null;
+  state.usage.included = null;
+  state.usage.used = null;
+  state.usage.plan = '—';
+  state.usage.period = '—';
+  state.usage.error = false;
+  renderUsagePopover();
+}
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'sync' && changes.zureqApiKey) {
+    updateCredentialState();
+    return;
+  }
+  if (
+    areaName === 'local'
+    && changes.zureqAuth
+    && Boolean(changes.zureqAuth.oldValue?.refresh) !== Boolean(changes.zureqAuth.newValue?.refresh)
+  ) updateCredentialState();
   if (!['session', 'local'].includes(areaName)) return;
   if (areaName === 'local' && changes.zureqWatchlist && activeTab() === 'watch') {
     renderWatches();
@@ -970,10 +1011,17 @@ async function init() {
   renderHistory();
   try {
     const settings = await chrome.storage.sync.get({ defaultCountry: '', zureqApiKey: '' });
-    const hasKey = Boolean(String(settings.zureqApiKey || '').trim());
-    showNoKey(!hasKey);
-    if (hasKey) refreshUsage(true);
-    await loadMarkets();
+    const hasCredential = Boolean(String(settings.zureqApiKey || '').trim()) || await isConnected();
+    showNoKey(!hasCredential);
+    if (hasCredential) {
+      refreshUsage(true);
+      await loadMarkets();
+    } else {
+      const cachedMarkets = await getCachedMarkets();
+      if (cachedMarkets) {
+        state.markets = normalizeMarkets(cachedMarkets);
+      }
+    }
     $('list-country').innerHTML = $('country').innerHTML;
     if (settings.defaultCountry) $('country').value = settings.defaultCountry;
     $('list-country').value = settings.defaultCountry || '';

@@ -6,11 +6,11 @@ Featured integration on [zureq.io](https://zureq.io).
 
 ## Install
 
-1. Get an API key at [zureq.io](https://zureq.io).
+1. Connect with your ZUREQ account in Options, or get an API key at [zureq.io](https://zureq.io).
 2. In Chrome or Edge, open `chrome://extensions` or `edge://extensions`, enable **Developer mode**, and choose **Load unpacked**.
-3. Select this repository directory, open the extension's **Options**, and save your key.
+3. Select this repository directory, open the extension's **Options**, and connect your account or save your API key.
 
-The extension stores the key in your browser's sync storage and only contacts `api.zureq.io`. Search history and 24-hour market-list and shop-info caches are stored locally.
+API keys are stored in browser sync storage; sign-in tokens stay in this browser's local storage. MCP requests go to `api.zureq.io`; `chat.zureq.io` is contacted only for sign-in, token refresh, and disconnect. Search history and 24-hour market-list and shop-info caches are stored locally. There is no tracking or analytics.
 
 ## Features
 
@@ -31,7 +31,7 @@ The extension stores the key in your browser's sync storage and only contacts `a
 - Relevance-ranked product search with country, price, stock, and result-limit filters.
 - Product detail cards with variant selection and checkout-link creation.
 - Context-menu search for selected text.
-- Usage tracking, recent searches, market caching, and an options page for local API-key management.
+- Credit usage badge, recent searches, market caching, and an options page for local API-key management.
 
 ## Credit costs
 

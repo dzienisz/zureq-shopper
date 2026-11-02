@@ -14,14 +14,14 @@ WHAT IT DOES
 
 ZUREQ Shopper gives you one focused shopping workspace for product discovery,
 shopping lists, price alerts, and checkout links across
-9,600+ independent shops in the US, Poland, and Austria. It connects to the
-ZUREQ MCP API with your own API key.
+9,600+ independent shops in the US, Poland, and Austria. Connect with your
+ZUREQ account or use your own API key to access the ZUREQ MCP API.
 
 Featured integration on zureq.io (https://zureq.io).
 
 HOW IT WORKS
 
-1. Add your ZUREQ API key in Options.
+1. Connect with ZUREQ in Options (Google works), or add your API key.
 2. Search for a product in the side panel.
 3. Search a list of up to 10 items, or click the button on a supported shop
    product page.
@@ -51,7 +51,7 @@ FEATURES
 
 CREDITS
 
-Bring your own ZUREQ API key. Tool calls use the following credits:
+Connect with your ZUREQ account or use your own API key. Tool calls use the following credits:
 
 search_products: 3 credits (1 if nothing is found)
 get_product: 1 credit
@@ -66,16 +66,17 @@ with `get_shop` before creating links; shop metadata is cached for 24 hours.
 
 PRIVACY
 
-The API key is stored in your browser's sync storage. Requests go only to
-api.zureq.io. Search history, list state, and market cache stay in local
-browser storage. Supported shop pages are read only after you click the
-extension button. There is no tracking, analytics, or data selling. See
-PRIVACY.md in the source repository.
+API keys are stored in browser sync storage; OAuth sign-in tokens stay only in
+this browser's local storage. MCP requests go to api.zureq.io; chat.zureq.io is
+contacted only for sign-in, token refresh, and disconnect. Search history, list
+state, and market cache stay in local browser storage. Supported shop pages are
+read only after you click the extension button. There is no tracking, analytics,
+or data selling. See PRIVACY.md in the source repository.
 
 REQUIREMENTS
 
-Microsoft Edge 114 or later on desktop. A ZUREQ API key is required for API
-requests.
+Microsoft Edge 114 or later on desktop. Connect with a ZUREQ account or use a
+ZUREQ API key.
 
 SINGLE PURPOSE
 
@@ -84,8 +85,10 @@ prices across the ZUREQ network.
 
 PERMISSION JUSTIFICATIONS
 
-storage: Saves the API key in sync storage and search history, list state, and
-market cache in local storage.
+storage: Saves API keys in sync storage, sign-in tokens in local storage, and
+search history, list state, and market cache locally.
+
+identity: Opens the ZUREQ sign-in flow and receives its redirect.
 
 contextMenus: Adds a search action for text selected by the user.
 
@@ -117,10 +120,11 @@ Shopping
 - **Website:** https://github.com/dzienisz/zureq-shopper
 - **Support:** https://github.com/dzienisz/zureq-shopper/issues
 - **Does it need credentials?** Yes. Users need their own ZUREQ API key from
-  zureq.io. No test key is provided.
+  zureq.io or can connect with a ZUREQ account. No test key is provided.
 - **Certification notes:** Open the side panel from the toolbar icon. Without
-  an API key, it displays the “Add your API key” state. All network calls go
-  only to api.zureq.io.
+  an account or API key, it displays the “Connect your ZUREQ account” state.
+  MCP requests go to api.zureq.io; chat.zureq.io is contacted only for
+  sign-in, token refresh, and disconnect.
 
 ## Assets
 
