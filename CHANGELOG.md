@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.7.0] - 2026-11-02
 
 - Add “Connect with ZUREQ” sign-in with local-only tokens; API keys remain available as a fallback.
 
