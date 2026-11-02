@@ -152,6 +152,12 @@ legend { margin-bottom: 8px; }
 .watch-meta { color: var(--muted); font-size: 11px; line-height: 1.45; margin: 3px 0; }
 .watch-tag { color: var(--accent-text); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .watch-actions { display: flex; gap: 6px; margin-top: 8px; }
+.watch-target-form { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 6px; align-items: end; margin-top: 8px; }
+.watch-target-field { min-width: 0; }
+.watch-target-field input { margin-top: 4px; padding: 6px 8px; }
+.watch-target-currency { color: var(--muted); font-size: 11px; padding-bottom: 7px; }
+.watch-target-form button { padding: 6px 8px; }
+.watch-target-error { grid-column: 1 / -1; margin: 0; }
 .watch-search-row { display: flex; justify-content: flex-end; margin: 8px 0; }
 .notice.error { background: #fff; color: var(--danger); }
 .empty-state { text-align: center; padding: 35px 12px; }

@@ -49,6 +49,7 @@ function newId() {
 }
 
 function normalizeWatch(partial = {}) {
+  const targetPrice = Number(partial.targetPrice);
   return {
     id: partial.id || newId(),
     type: partial.type === 'product' ? 'product' : 'query',
@@ -61,6 +62,8 @@ function normalizeWatch(partial = {}) {
       price: Number(partial.baseline?.price),
       currency: String(partial.baseline?.currency || '').toUpperCase()
     },
+    targetPrice: Number.isFinite(targetPrice) && targetPrice > 0 ? targetPrice : null,
+    targetHit: Boolean(partial.targetHit),
     lastPrice: partial.lastPrice ?? null,
     lastCurrency: partial.lastCurrency ?? null,
     lastCheckedAt: partial.lastCheckedAt ?? null,
@@ -81,9 +84,11 @@ export function evaluateWatch(watch, products) {
     .filter(({ price }) => price != null)
     .sort((a, b) => a.price - b.price);
   const best = candidates[0]?.product || null;
+  const bestPrice = finitePrice(best);
   return {
     best,
-    cheaper: Boolean(best && finitePrice(best) < Number(watch.baseline?.price))
+    cheaper: Boolean(best && bestPrice < Number(watch.baseline?.price)),
+    hitTarget: watch.targetPrice != null && bestPrice != null && bestPrice <= Number(watch.targetPrice)
   };
 }
 
@@ -102,7 +107,8 @@ export function applyResult(watch, evaluation, now = Date.now()) {
       shopId: best.shopId,
       sku: best.sku
     } : null,
-    alert: Boolean(evaluation?.cheaper)
+    targetHit: watch.targetPrice != null ? Boolean(evaluation?.hitTarget) : false,
+    alert: Boolean(watch.targetPrice != null ? evaluation?.hitTarget : evaluation?.cheaper)
   };
 }
 
@@ -136,6 +142,16 @@ export async function removeWatch(id) {
   return next;
 }
 
+export async function setWatchTarget(id, price) {
+  const targetPrice = price == null ? null : Number(price);
+  const normalizedTarget = Number.isFinite(targetPrice) && targetPrice > 0 ? targetPrice : null;
+  const next = (await getWatches()).map((watch) => watch.id === id
+    ? { ...watch, targetPrice: normalizedTarget, alert: false, targetHit: false }
+    : watch);
+  await saveWatches(next);
+  return next;
+}
+
 export async function clearAlerts() {
   const next = (await getWatches()).map((watch) => ({ ...watch, alert: false }));
   await saveWatches(next);
@@ -154,8 +170,13 @@ export async function checkWatchlist(callTool, { notify = () => {}, setBadge = (
     try {
       const data = await callTool('search_products', args);
       const updated = applyResult(watch, evaluateWatch(watch, data?.products || []));
-      const newLow = updated.alert && (watch.lastPrice == null || updated.lastPrice < watch.lastPrice);
-      updated.alert = Boolean(newLow || (watch.alert && updated.alert));
+      if (watch.targetPrice != null) {
+        const hitTarget = Boolean(updated.targetHit);
+        updated.alert = hitTarget && (!watch.targetHit || watch.alert);
+      } else {
+        const newLow = updated.alert && (watch.lastPrice == null || updated.lastPrice < watch.lastPrice);
+        updated.alert = Boolean(newLow || (watch.alert && updated.alert));
+      }
       next[index] = updated;
       checked += 1;
       if (!watch.alert && updated.alert) newlyAlerting.push(updated);

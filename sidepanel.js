@@ -6,7 +6,7 @@ import {
 } from './zureq.js';
 import { groupListPicks, MAX_LIST_ITEMS, migrateListState, parseListInput } from './list.js';
 import { setBusy, skeletonHtml } from './loading.js';
-import { addWatch, clearAlerts, getWatches, removeWatch, searchBaseline } from './watchlist.js';
+import { addWatch, clearAlerts, getWatches, removeWatch, searchBaseline, setWatchTarget } from './watchlist.js';
 
 const $ = (id) => document.getElementById(id);
 const state = {
@@ -684,7 +684,18 @@ async function renderWatches() {
       ? `Last: ${esc(watch.lastPrice)} ${esc(watch.lastCurrency || '')} · ${esc(last.shopName || last.shopId || 'Unknown shop')} · ${relativeTime(watch.lastCheckedAt)}`
       : 'Not checked yet';
     const cheaper = watch.lastPrice != null && Number(watch.lastPrice) < Number(watch.baseline.price);
-    return `<article class="watch-item" data-watch-id="${esc(watch.id)}"><h3>${esc(watch.name)} ${cheaper ? '<span class="cheaper">Cheaper!</span>' : ''}</h3><div class="watch-meta"><span class="watch-tag">${esc(watch.type)}</span>${watch.country ? ` · ${esc(watch.country)}` : ''}</div><div class="watch-meta">Watching since ${esc(watch.baseline.price)} ${esc(watch.baseline.currency || '')}</div><div class="watch-meta">${lastLine}</div><div class="watch-actions"><button class="secondary" data-action="watch-search">Search</button><button class="secondary" data-action="remove-watch">Remove</button></div></article>`;
+    const targetPrice = watch.targetPrice != null ? Number(watch.targetPrice) : null;
+    const alertLabel = targetPrice != null
+      ? (watch.alert ? '<span class="cheaper">Target reached!</span>' : '')
+      : (cheaper ? '<span class="cheaper">Cheaper!</span>' : '');
+    const targetLine = targetPrice != null
+      ? `<div class="watch-meta">Target ≤ ${esc(targetPrice)} ${esc(watch.baseline.currency || '')}</div>`
+      : '';
+    const targetCurrency = watch.baseline.currency || '';
+    const targetId = `watch-target-${watch.id}`;
+    const targetCurrencyId = `watch-target-currency-${watch.id}`;
+    const targetErrorId = `watch-target-error-${watch.id}`;
+    return `<article class="watch-item" data-watch-id="${esc(watch.id)}"><h3>${esc(watch.name)} ${alertLabel}</h3><div class="watch-meta"><span class="watch-tag">${esc(watch.type)}</span>${watch.country ? ` · ${esc(watch.country)}` : ''}</div><div class="watch-meta">Watching since ${esc(watch.baseline.price)} ${esc(targetCurrency)}</div>${targetLine}<div class="watch-meta">${lastLine}</div><form class="watch-target-form" novalidate><label class="watch-target-field" for="${esc(targetId)}">Notify at or below<input id="${esc(targetId)}" type="number" min="0.01" step="any" value="${targetPrice ?? ''}" aria-label="Notify at or below ${esc(targetCurrency)}" aria-describedby="${esc(targetCurrencyId)} ${esc(targetErrorId)}" data-action="watch-target-input"></label><span id="${esc(targetCurrencyId)}" class="watch-target-currency">${esc(targetCurrency)}</span><button class="secondary" type="submit" data-action="save-watch-target">Save</button><button class="secondary" type="button" data-action="clear-watch-target"${targetPrice == null ? ' disabled' : ''}>Clear</button><p id="${esc(targetErrorId)}" class="watch-target-error hint hidden" role="alert"></p></form><div class="watch-actions"><button class="secondary" data-action="watch-search">Search</button><button class="secondary" data-action="remove-watch">Remove</button></div></article>`;
   }).join('') : '<p class="hint">Nothing watched yet. Use “Watch” on a product or “Watch this search” under results.</p>';
 }
 
@@ -838,10 +849,14 @@ $('watch-list').addEventListener('click', async (event) => {
   const button = event.target.closest('[data-action]');
   const item = button?.closest('.watch-item');
   if (!button || !item) return;
+  if (button.dataset.action === 'save-watch-target') return;
   const watch = (await getWatches()).find((candidate) => candidate.id === item.dataset.watchId);
   if (!watch) return;
   if (button.dataset.action === 'remove-watch') {
     await removeWatch(watch.id);
+    renderWatches();
+  } else if (button.dataset.action === 'clear-watch-target') {
+    await setWatchTarget(watch.id, null);
     renderWatches();
   } else if (button.dataset.action === 'watch-search') {
     switchTab('search');
@@ -850,12 +865,38 @@ $('watch-list').addEventListener('click', async (event) => {
     await search();
   }
 });
+$('watch-list').addEventListener('submit', async (event) => {
+  const form = event.target.closest('.watch-target-form');
+  if (!form) return;
+  event.preventDefault();
+  const input = form.querySelector('[data-action="watch-target-input"]');
+  const parsed = parseMaxPrice(input.value);
+  const error = form.querySelector('.watch-target-error');
+  if (parsed.error || parsed.value === undefined) {
+    error.textContent = parsed.error || 'Enter a target price greater than 0.';
+    error.classList.remove('hidden');
+    input.setAttribute('aria-invalid', 'true');
+    input.focus();
+    return;
+  }
+  await setWatchTarget(form.closest('.watch-item').dataset.watchId, parsed.value);
+  await renderWatches();
+});
+$('watch-list').addEventListener('input', (event) => {
+  const input = event.target.closest('[data-action="watch-target-input"]');
+  if (!input) return;
+  const error = input.closest('form').querySelector('.watch-target-error');
+  error.textContent = '';
+  error.classList.add('hidden');
+  input.removeAttribute('aria-invalid');
+});
 $('check-watches').addEventListener('click', async () => {
   const button = $('check-watches');
   setBusy(button, true, 'Checking…');
   try {
     const result = await chrome.runtime.sendMessage({ type: 'zureq-check-watchlist' });
-    showNotice(`Checked ${result?.checked || 0} watch${result?.checked === 1 ? '' : 'es'}; ${result?.alerts || 0} cheaper.`);
+    const alerts = result?.alerts || 0;
+    showNotice(`Checked ${result?.checked || 0} watch${result?.checked === 1 ? '' : 'es'}; ${alerts} active alert${alerts === 1 ? '' : 's'}.`);
     await renderWatches();
   } catch {
     showNotice('Could not check the watchlist.', true);

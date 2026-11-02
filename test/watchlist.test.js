@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addWatch, applyResult, checkWatchlist, evaluateWatch, getWatches, searchBaseline
+  addWatch, applyResult, checkWatchlist, clearAlerts, evaluateWatch, getWatches, searchBaseline, setWatchTarget
 } from '../watchlist.js';
 import { ZureqError } from '../zureq.js';
 
@@ -46,6 +46,23 @@ test('searchBaseline returns null without finite priced products and currencies'
   ]), null);
 });
 
+test('addWatch normalizes target prices to finite positive values', async () => {
+  const cleanup = storageHarness([]);
+  const makeWatch = (query, targetPrice) => addWatch({
+    type: 'query',
+    query,
+    baseline: { price: 100, currency: 'PLN' },
+    targetPrice
+  });
+  assert.equal((await makeWatch('valid', 80)).targetPrice, 80);
+  assert.equal((await makeWatch('valid-target-hit', 80)).targetHit, false);
+  assert.equal((await makeWatch('zero', 0)).targetPrice, null);
+  assert.equal((await makeWatch('negative', -1)).targetPrice, null);
+  assert.equal((await makeWatch('infinite', Number.POSITIVE_INFINITY)).targetPrice, null);
+  assert.equal((await makeWatch('garbage', 'not-a-price')).targetPrice, null);
+  cleanup();
+});
+
 test('evaluateWatch filters products, currency, and picks the cheapest', () => {
   const watch = {
     type: 'product',
@@ -62,6 +79,8 @@ test('evaluateWatch filters products, currency, and picks the cheapest', () => {
   ]);
   assert.equal(result.best.price, 95);
   assert.equal(result.cheaper, true);
+  assert.equal(result.hitTarget, false);
+  assert.equal(applyResult(watch, result).alert, true);
   assert.equal(evaluateWatch(watch, []).best, null);
 });
 
@@ -72,6 +91,27 @@ test('evaluateWatch reports no alert when the best price is not cheaper', () => 
   );
   assert.equal(result.best.price, 100);
   assert.equal(result.cheaper, false);
+});
+
+test('target alerts require a price at or below the target, not merely below baseline', () => {
+  const watch = {
+    type: 'query',
+    baseline: { price: 100, currency: 'PLN' },
+    targetPrice: 90
+  };
+  const aboveTarget = evaluateWatch(watch, [{ price: 95, currency: 'PLN' }]);
+  assert.equal(aboveTarget.cheaper, true);
+  assert.equal(aboveTarget.hitTarget, false);
+  assert.equal(applyResult(watch, aboveTarget).targetHit, false);
+  assert.equal(applyResult(watch, aboveTarget).alert, false);
+
+  for (const price of [90, 85]) {
+    const atOrBelowTarget = evaluateWatch(watch, [{ price, currency: 'PLN' }]);
+    assert.equal(atOrBelowTarget.hitTarget, true);
+    const result = applyResult(watch, atOrBelowTarget);
+    assert.equal(result.targetHit, true);
+    assert.equal(result.alert, true);
+  }
 });
 
 test('applyResult is immutable and records an alert', () => {
@@ -91,6 +131,7 @@ test('applyResult is immutable and records an alert', () => {
   assert.equal(result.lastCheckedAt, 123);
   assert.equal(result.lastPrice, 80);
   assert.equal(result.lastResult.name, 'Lamp');
+  assert.equal(result.targetHit, false);
   assert.equal(result.alert, true);
 });
 
@@ -119,6 +160,23 @@ test('addWatch deduplicates and caps at 25 entries', async () => {
   cleanup();
 });
 
+test('setWatchTarget sets or clears a target and resets the alert', async () => {
+  const cleanup = storageHarness([
+    { id: 'watch-target', name: 'Lamp', alert: true, targetPrice: 90, targetHit: true }
+  ]);
+  await setWatchTarget('watch-target', 80);
+  let watch = (await getWatches())[0];
+  assert.equal(watch.targetPrice, 80);
+  assert.equal(watch.alert, false);
+  assert.equal(watch.targetHit, false);
+  await setWatchTarget('watch-target', null);
+  watch = (await getWatches())[0];
+  assert.equal(watch.targetPrice, null);
+  assert.equal(watch.alert, false);
+  assert.equal(watch.targetHit, false);
+  cleanup();
+});
+
 test('checkWatchlist notifies newly cheaper watches', async () => {
   const initial = [
     { id: 'watch-1', type: 'query', query: 'lamp', country: '', name: 'Lamp', baseline: { price: 100, currency: 'PLN' }, alert: false, lastCheckedAt: null },
@@ -133,6 +191,66 @@ test('checkWatchlist notifies newly cheaper watches', async () => {
   assert.equal(result.checked, 2);
   assert.equal(result.alerts, 1);
   assert.deepEqual(notifications, ['watch-1']);
+  cleanup();
+});
+
+test('checkWatchlist alerts on target-hit transitions and rearms after the target is left', async () => {
+  const cleanup = storageHarness([
+    {
+      id: 'watch-target',
+      type: 'query',
+      query: 'lamp',
+      country: 'PL',
+      name: 'Lamp',
+      baseline: { price: 41.08, currency: 'PLN' },
+      targetPrice: null,
+      targetHit: false,
+      alert: false,
+      lastPrice: 41.08
+    }
+  ]);
+  const notifications = [];
+  let price = 41.08;
+  await setWatchTarget('watch-target', 42.08);
+  const check = () => checkWatchlist(
+    async () => ({ products: [{ name: 'Lamp', price, currency: 'PLN' }] }),
+    { notify: (watch) => notifications.push(watch.id) }
+  );
+
+  const first = await check();
+  assert.equal(first.alerts, 1);
+  assert.deepEqual(notifications, ['watch-target']);
+  let watch = (await getWatches())[0];
+  assert.equal(watch.lastPrice, 41.08);
+  assert.equal(watch.targetHit, true);
+  assert.equal(watch.alert, true);
+
+  const second = await check();
+  assert.equal(second.alerts, 1);
+  assert.deepEqual(notifications, ['watch-target']);
+
+  await clearAlerts();
+  const afterClear = await check();
+  assert.equal(afterClear.alerts, 0);
+  assert.deepEqual(notifications, ['watch-target']);
+  watch = (await getWatches())[0];
+  assert.equal(watch.targetHit, true);
+  assert.equal(watch.alert, false);
+
+  price = 42.09;
+  const aboveTarget = await check();
+  assert.equal(aboveTarget.alerts, 0);
+  watch = (await getWatches())[0];
+  assert.equal(watch.targetHit, false);
+  assert.equal(watch.alert, false);
+
+  price = 41.08;
+  const backUnderTarget = await check();
+  assert.equal(backUnderTarget.alerts, 1);
+  assert.deepEqual(notifications, ['watch-target', 'watch-target']);
+  watch = (await getWatches())[0];
+  assert.equal(watch.targetHit, true);
+  assert.equal(watch.alert, true);
   cleanup();
 });
 
