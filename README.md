@@ -19,7 +19,7 @@ The extension stores the key in your browser's sync storage and only contacts `a
 - Create checkout links for supported shops; List splits carts to each shop's line limit and falls back to per-item links when a cart fails.
 - Search selected page text from the context menu.
 - View current API usage and this session's estimated credit spend.
-- Save product and search watches for scheduled price-drop alerts.
+- Save product and search watches for scheduled price-drop, target-price and back-in-stock alerts, with a local 30-day price history.
 
 ## New shopping tools
 

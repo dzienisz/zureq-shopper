@@ -25,7 +25,8 @@ HOW IT WORKS
    product page.
 4. Review products, variants, prices, and checkout links before choosing where
    to buy.
-5. Watch a product or search and get notified when it gets cheaper.
+5. Watch a product or search and get notified when it gets cheaper, reaches
+   your target price, or is back in stock.
 
 FEATURES
 
@@ -37,8 +38,9 @@ FEATURES
   per-shop totals.
 - Shop-aware checkout checks support and respects each shop's cart line limit,
   splitting carts into separate links when needed.
-- Price alerts for watched products and searches, with a configurable
-  background check interval.
+- Price alerts for watched products and searches: an optional target price,
+  back-in-stock alerts for products, a local price history with the lowest
+  price in 30 days, and a configurable background check interval.
 - “Find on ZUREQ network” button on supported shop product pages, including
   market-matched searches and an optional same-currency cheaper-result marker.
 - A header usage badge shows remaining credits and this session's estimated

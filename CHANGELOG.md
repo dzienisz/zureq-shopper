@@ -1,7 +1,9 @@
 # Changelog
 
-## [Unreleased]
+## [1.6.0] - 2026-11-02
 
+- A failed search no longer leaves the previous search's results on screen.
+- Product watches are checked with get_product (1 credit) instead of a search (up to 3).
 - Watch supports optional target prices with alerts when an item reaches the target.
 - Watch product checks use live stock, alert when items return, and identify products no longer listed by the shop.
 - Watch cards show recent price history and the lowest price in 30 days.
