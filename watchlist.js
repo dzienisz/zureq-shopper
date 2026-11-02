@@ -1,4 +1,4 @@
-import { locationArgs } from './zureq.js';
+import { applyLiveDetails, locationArgs, ZureqError } from './zureq.js';
 
 export const WATCH_ALARM = 'zureq-watchlist';
 export const WATCH_INTERVALS = Object.freeze({
@@ -10,6 +10,7 @@ export const WATCH_INTERVALS = Object.freeze({
 
 const WATCH_KEY = 'zureqWatchlist';
 const MAX_WATCHES = 25;
+const ALERT_REASONS = new Set(['target', 'cheaper', 'restock']);
 
 export function searchBaseline(products) {
   const currencies = new Map();
@@ -64,11 +65,14 @@ function normalizeWatch(partial = {}) {
     },
     targetPrice: Number.isFinite(targetPrice) && targetPrice > 0 ? targetPrice : null,
     targetHit: Boolean(partial.targetHit),
+    lastInStock: typeof partial.lastInStock === 'boolean' ? partial.lastInStock : null,
+    unavailable: Boolean(partial.unavailable),
     lastPrice: partial.lastPrice ?? null,
     lastCurrency: partial.lastCurrency ?? null,
     lastCheckedAt: partial.lastCheckedAt ?? null,
     lastResult: partial.lastResult ?? null,
     alert: Boolean(partial.alert),
+    alertReason: ALERT_REASONS.has(partial.alertReason) ? partial.alertReason : null,
     createdAt: partial.createdAt || Date.now()
   };
 }
@@ -94,6 +98,7 @@ export function evaluateWatch(watch, products) {
 
 export function applyResult(watch, evaluation, now = Date.now()) {
   const best = evaluation?.best || null;
+  const alert = Boolean(watch.targetPrice != null ? evaluation?.hitTarget : evaluation?.cheaper);
   return {
     ...watch,
     lastCheckedAt: now,
@@ -108,13 +113,14 @@ export function applyResult(watch, evaluation, now = Date.now()) {
       sku: best.sku
     } : null,
     targetHit: watch.targetPrice != null ? Boolean(evaluation?.hitTarget) : false,
-    alert: Boolean(watch.targetPrice != null ? evaluation?.hitTarget : evaluation?.cheaper)
+    alert,
+    alertReason: alert ? (watch.targetPrice != null ? 'target' : 'cheaper') : null
   };
 }
 
 export async function getWatches() {
   const values = await chrome.storage.local.get({ [WATCH_KEY]: [] });
-  return Array.isArray(values[WATCH_KEY]) ? values[WATCH_KEY] : [];
+  return Array.isArray(values[WATCH_KEY]) ? values[WATCH_KEY].map(normalizeWatch) : [];
 }
 
 export async function saveWatches(list) {
@@ -146,16 +152,52 @@ export async function setWatchTarget(id, price) {
   const targetPrice = price == null ? null : Number(price);
   const normalizedTarget = Number.isFinite(targetPrice) && targetPrice > 0 ? targetPrice : null;
   const next = (await getWatches()).map((watch) => watch.id === id
-    ? { ...watch, targetPrice: normalizedTarget, alert: false, targetHit: false }
+    ? { ...watch, targetPrice: normalizedTarget, alert: false, alertReason: null, targetHit: false }
     : watch);
   await saveWatches(next);
   return next;
 }
 
 export async function clearAlerts() {
-  const next = (await getWatches()).map((watch) => ({ ...watch, alert: false }));
+  const next = (await getWatches()).map((watch) => ({ ...watch, alert: false, alertReason: null }));
   await saveWatches(next);
   return next;
+}
+
+function hasLivePrice(value) {
+  return value != null
+    && !(typeof value === 'string' && !value.trim())
+    && Number.isFinite(Number(value));
+}
+
+function isMissingProduct(error) {
+  return error instanceof ZureqError
+    && error.code === 'API_ERROR'
+    && /shop\b.+\bhas no product with sku\b/i.test(String(error.message || ''));
+}
+
+function applyAlertState(watch, updated) {
+  if (watch.type === 'product' && updated.lastInStock === false) {
+    updated.alert = false;
+    updated.alertReason = null;
+    updated.targetHit = false;
+    return;
+  }
+  if (watch.type === 'product' && updated.lastInStock === true && watch.lastInStock === false) {
+    updated.alert = true;
+    updated.alertReason = 'restock';
+    return;
+  }
+  if (watch.targetPrice != null) {
+    const hitTarget = Boolean(updated.targetHit);
+    updated.alert = hitTarget && (!watch.targetHit || watch.alert);
+  } else {
+    const newLow = updated.alert && (watch.lastPrice == null || updated.lastPrice < watch.lastPrice);
+    updated.alert = Boolean(newLow || (watch.alert && updated.alert));
+  }
+  updated.alertReason = updated.alert
+    ? (watch.alert && watch.alertReason ? watch.alertReason : watch.targetPrice != null ? 'target' : 'cheaper')
+    : null;
 }
 
 export async function checkWatchlist(callTool, { notify = () => {}, setBadge = () => {} } = {}) {
@@ -166,23 +208,56 @@ export async function checkWatchlist(callTool, { notify = () => {}, setBadge = (
 
   for (let index = 0; index < watches.length; index += 1) {
     const watch = watches[index];
-    const args = { query: watch.query, ...locationArgs(watch.country), inStockOnly: true, limit: 10 };
+    const checkedAt = Date.now();
     try {
-      const data = await callTool('search_products', args);
-      const updated = applyResult(watch, evaluateWatch(watch, data?.products || []));
-      if (watch.targetPrice != null) {
-        const hitTarget = Boolean(updated.targetHit);
-        updated.alert = hitTarget && (!watch.targetHit || watch.alert);
+      let updated;
+      if (watch.type === 'product') {
+        const data = await callTool('get_product', { shopId: watch.shopId, sku: watch.sku });
+        const details = data?.product || data;
+        const base = {
+          ...(watch.lastResult || {}),
+          shopId: watch.shopId,
+          sku: watch.sku,
+          name: watch.name,
+          price: watch.lastPrice,
+          currency: watch.lastCurrency || watch.baseline.currency,
+          inStock: watch.lastInStock
+        };
+        const { product: liveProduct } = applyLiveDetails(base, details);
+        const product = {
+          ...liveProduct,
+          name: details?.name || liveProduct.name || watch.name,
+          shopName: details?.shopName || liveProduct.shopName
+        };
+        const hasPrice = hasLivePrice(details?.price);
+        const evaluation = evaluateWatch(watch, hasPrice ? [product] : []);
+        updated = applyResult(watch, evaluation, checkedAt);
+        updated.lastInStock = typeof product.inStock === 'boolean' ? product.inStock : watch.lastInStock;
+        updated.unavailable = false;
       } else {
-        const newLow = updated.alert && (watch.lastPrice == null || updated.lastPrice < watch.lastPrice);
-        updated.alert = Boolean(newLow || (watch.alert && updated.alert));
+        const args = { query: watch.query, ...locationArgs(watch.country), inStockOnly: true, limit: 10 };
+        const data = await callTool('search_products', args);
+        updated = applyResult(watch, evaluateWatch(watch, data?.products || []), checkedAt);
       }
+      applyAlertState(watch, updated);
       next[index] = updated;
       checked += 1;
       if (!watch.alert && updated.alert) newlyAlerting.push(updated);
     } catch (error) {
       if (['NO_KEY', 'CREDITS_EXHAUSTED', 'BAD_KEY'].includes(error?.code)) break;
-      next[index] = { ...watch, lastCheckedAt: Date.now() };
+      if (isMissingProduct(error)) {
+        next[index] = {
+          ...watch,
+          unavailable: true,
+          lastCheckedAt: checkedAt,
+          targetHit: false,
+          alert: false,
+          alertReason: null
+        };
+        checked += 1;
+        continue;
+      }
+      next[index] = { ...watch, lastCheckedAt: checkedAt };
       checked += 1;
     }
   }

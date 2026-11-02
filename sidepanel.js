@@ -184,7 +184,8 @@ async function watchProduct(product, button) {
       shopId: product.shopId,
       sku: product.sku,
       name,
-      baseline: { price, currency: product.currency }
+      baseline: { price, currency: product.currency },
+      lastInStock: typeof product.inStock === 'boolean' ? product.inStock : null
     });
     showNotice(`Watching “${name}”.`);
   } catch (error) {
@@ -675,7 +676,7 @@ async function renderWatches() {
   const watches = await getWatches();
   const settings = await chrome.storage.sync.get({ watchInterval: '24' });
   const hours = settings.watchInterval === '168' ? '168' : String(settings.watchInterval || '24');
-  $('watch-hint').textContent = `Checks run every ${hours} h in the background (up to 3 credits per watch). Change the interval in Options.`;
+  $('watch-hint').textContent = `Checks run every ${hours} h in the background (up to 3 credits per search watch, 1 per product watch). Change the interval in Options.`;
   $('watch-list').innerHTML = watches.length ? watches.map((watch) => {
     const last = watch.lastResult;
     const lastLine = last
@@ -683,17 +684,20 @@ async function renderWatches() {
       : 'Not checked yet';
     const cheaper = watch.lastPrice != null && Number(watch.lastPrice) < Number(watch.baseline.price);
     const targetPrice = watch.targetPrice != null ? Number(watch.targetPrice) : null;
-    const alertLabel = targetPrice != null
+    const alertLabel = watch.alert && watch.alertReason === 'restock'
+      ? '<span class="cheaper">Back in stock!</span>'
+      : targetPrice != null
       ? (watch.alert ? '<span class="cheaper">Target reached!</span>' : '')
       : (cheaper ? '<span class="cheaper">Cheaper!</span>' : '');
     const targetLine = targetPrice != null
       ? `<div class="watch-meta">Target ≤ ${esc(targetPrice)} ${esc(watch.baseline.currency || '')}</div>`
       : '';
+    const availability = `${watch.lastInStock === false ? '<span class="stock-chip">Out of stock</span>' : ''}${watch.unavailable ? '<span class="stock-chip">No longer listed by the shop</span>' : ''}`;
     const targetCurrency = watch.baseline.currency || '';
     const targetId = `watch-target-${watch.id}`;
     const targetCurrencyId = `watch-target-currency-${watch.id}`;
     const targetErrorId = `watch-target-error-${watch.id}`;
-    return `<article class="watch-item" data-watch-id="${esc(watch.id)}"><h3>${esc(watch.name)} ${alertLabel}</h3><div class="watch-meta"><span class="watch-tag">${esc(watch.type)}</span>${watch.country ? ` · ${esc(watch.country)}` : ''}</div><div class="watch-meta">Watching since ${esc(watch.baseline.price)} ${esc(targetCurrency)}</div>${targetLine}<div class="watch-meta">${lastLine}</div><form class="watch-target-form" novalidate><label class="watch-target-field" for="${esc(targetId)}">Notify at or below<input id="${esc(targetId)}" type="number" min="0.01" step="any" value="${targetPrice ?? ''}" aria-label="Notify at or below ${esc(targetCurrency)}" aria-describedby="${esc(targetCurrencyId)} ${esc(targetErrorId)}" data-action="watch-target-input"></label><span id="${esc(targetCurrencyId)}" class="watch-target-currency">${esc(targetCurrency)}</span><button class="secondary" type="submit" data-action="save-watch-target">Save</button><button class="secondary" type="button" data-action="clear-watch-target"${targetPrice == null ? ' disabled' : ''}>Clear</button><p id="${esc(targetErrorId)}" class="watch-target-error hint hidden" role="alert"></p></form><div class="watch-actions"><button class="secondary" data-action="watch-search">Search</button><button class="secondary" data-action="remove-watch">Remove</button></div></article>`;
+    return `<article class="watch-item" data-watch-id="${esc(watch.id)}"><h3>${esc(watch.name)} ${alertLabel}</h3><div class="watch-meta"><span class="watch-tag">${esc(watch.type)}</span>${watch.country ? ` · ${esc(watch.country)}` : ''}</div><div class="watch-meta">Watching since ${esc(watch.baseline.price)} ${esc(targetCurrency)}</div>${targetLine}${availability}<div class="watch-meta">${lastLine}</div><form class="watch-target-form" novalidate><label class="watch-target-field" for="${esc(targetId)}">Notify at or below<input id="${esc(targetId)}" type="number" min="0.01" step="any" value="${targetPrice ?? ''}" aria-label="Notify at or below ${esc(targetCurrency)}" aria-describedby="${esc(targetCurrencyId)} ${esc(targetErrorId)}" data-action="watch-target-input"></label><span id="${esc(targetCurrencyId)}" class="watch-target-currency">${esc(targetCurrency)}</span><button class="secondary" type="submit" data-action="save-watch-target">Save</button><button class="secondary" type="button" data-action="clear-watch-target"${targetPrice == null ? ' disabled' : ''}>Clear</button><p id="${esc(targetErrorId)}" class="watch-target-error hint hidden" role="alert"></p></form><div class="watch-actions"><button class="secondary" data-action="watch-search">Search</button><button class="secondary" data-action="remove-watch">Remove</button></div></article>`;
   }).join('') : '<p class="hint">Nothing watched yet. Use “Watch” on a product or “Watch this search” under results.</p>';
 }
 

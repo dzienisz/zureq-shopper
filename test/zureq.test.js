@@ -111,6 +111,18 @@ test('maps known API errors to friendly codes and messages', () => {
   assert(error instanceof ZureqError);
 });
 
+test('maps missing product SKU tool errors to API_ERROR', () => {
+  assert.throws(
+    () => parseToolResponse({
+      result: {
+        isError: true,
+        content: [{ type: 'text', text: 'Shop fera-pl has no product with sku 82942' }]
+      }
+    }),
+    (error) => error instanceof ZureqError && error.code === 'API_ERROR'
+  );
+});
+
 test('maps invalid arguments', () => {
   assert.equal(mapApiError({ code: -32602 }).code, 'INVALID_ARGS');
 });

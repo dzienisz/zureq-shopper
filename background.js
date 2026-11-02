@@ -44,6 +44,14 @@ async function scheduleWatchAlarm() {
 function notifyWatch(watch) {
   const price = watch.lastPrice ?? '—';
   const currency = watch.lastCurrency || watch.baseline.currency || '';
+  if (watch.alertReason === 'restock') {
+    return chrome.notifications.create(`zureq-watch-${watch.id}`, {
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: 'Back in stock on ZUREQ',
+      message: `${watch.name}: available again at ${price} ${currency}`
+    });
+  }
   if (watch.targetPrice != null) {
     const targetCurrency = watch.baseline.currency || currency;
     return chrome.notifications.create(`zureq-watch-${watch.id}`, {
