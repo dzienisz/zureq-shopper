@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addWatch, applyResult, checkWatchlist, clearAlerts, evaluateWatch, getWatches, searchBaseline, setWatchTarget
+  addWatch, applyResult, checkWatchlist, clearAlerts, evaluateWatch, getWatches, historyPolyline,
+  historyStats, searchBaseline, setWatchTarget
 } from '../watchlist.js';
 import { ZureqError } from '../zureq.js';
 
@@ -63,6 +64,77 @@ test('addWatch normalizes target prices to finite positive values', async () => 
   const defaults = await makeWatch('defaults', null);
   assert.equal(defaults.lastInStock, null);
   assert.equal(defaults.unavailable, false);
+  cleanup();
+});
+
+test('addWatch seeds the initial baseline history point', async () => {
+  const cleanup = storageHarness([]);
+  const watch = await addWatch({
+    id: 'seeded-history',
+    type: 'query',
+    query: 'lamp',
+    baseline: { price: 41.08, currency: 'PLN' },
+    createdAt: 123456789
+  });
+  assert.deepEqual(watch.history, [{ t: 123456789, p: 41.08 }]);
+  assert.deepEqual((await getWatches())[0].history, [{ t: 123456789, p: 41.08 }]);
+  cleanup();
+});
+
+test('normalizeWatch filters non-finite and malformed history points', async () => {
+  const cleanup = storageHarness([{
+    id: 'garbage-history',
+    baseline: { price: 100, currency: 'PLN' },
+    history: [
+      { t: 10, p: 10 },
+      { t: 11, p: '20' },
+      { t: '12', p: 30 },
+      { t: Number.POSITIVE_INFINITY, p: 30 },
+      { t: 13, p: Number.NaN },
+      null,
+      { t: 9, p: 9 }
+    ]
+  }]);
+  assert.deepEqual((await getWatches())[0].history, [{ t: 9, p: 9 }, { t: 10, p: 10 }]);
+  cleanup();
+});
+
+test('historyStats includes the 30-day boundary and excludes older and future points', () => {
+  const day = 24 * 60 * 60 * 1000;
+  const now = 1_000_000_000;
+  assert.deepEqual(historyStats([
+    { t: now - 30 * day, p: 10 },
+    { t: now - 30 * day - 1, p: 1 },
+    { t: now - day, p: 8 },
+    { t: now, p: 5 },
+    { t: now + 1, p: 0 }
+  ], now), { low30: 5, high30: 10, points: 3 });
+});
+
+test('historyPolyline returns no chart for a single point', () => {
+  assert.equal(historyPolyline([{ t: 1, p: 10 }]), '');
+  assert.notEqual(historyPolyline([{ t: 1, p: 10 }, { t: 2, p: 11 }]), '');
+});
+
+test('checkWatchlist appends prices and caps history at the 90 newest points', async () => {
+  const cleanup = storageHarness([]);
+  await addWatch({
+    id: 'history-cap',
+    type: 'query',
+    query: 'lamp',
+    baseline: { price: 100, currency: 'PLN' },
+    createdAt: 1
+  });
+  for (let price = 1; price <= 95; price += 1) {
+    await checkWatchlist(async () => ({
+      products: [{ name: 'Lamp', price, currency: 'PLN' }]
+    }));
+  }
+  const history = (await getWatches())[0].history;
+  assert.equal(history.length, 90);
+  assert.equal(history[0].p, 6);
+  assert.equal(history.at(-1).p, 95);
+  assert.equal(history.every(({ t, p }) => Number.isFinite(t) && Number.isFinite(p)), true);
   cleanup();
 });
 
@@ -293,6 +365,7 @@ test('product watches fetch the live product by shopId and sku', async () => {
   assert.equal(watch.lastInStock, true);
   assert.equal(watch.lastPrice, 95);
   assert.equal(watch.unavailable, false);
+  assert.deepEqual(watch.history.map(({ p }) => p), [95]);
   cleanup();
 });
 
@@ -363,7 +436,8 @@ test('an out-of-stock product price drop does not alert', async () => {
       baseline: { price: 100, currency: 'PLN' },
       lastPrice: 100,
       lastInStock: true,
-      alert: false
+      alert: false,
+      history: [{ t: 1, p: 100 }]
     }
   ]);
   const notifications = [];
@@ -385,6 +459,7 @@ test('an out-of-stock product price drop does not alert', async () => {
   assert.equal(watch.lastPrice, 80);
   assert.equal(watch.alert, false);
   assert.equal(watch.alertReason, null);
+  assert.deepEqual(watch.history, [{ t: 1, p: 100 }]);
   cleanup();
 });
 
