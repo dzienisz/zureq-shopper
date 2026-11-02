@@ -151,6 +151,9 @@ legend { margin-bottom: 8px; }
 .watch-item h3 { margin: 0 0 4px; font-size: 13px; }
 .watch-meta { color: var(--muted); font-size: 11px; line-height: 1.45; margin: 3px 0; }
 .watch-tag { color: var(--accent-text); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.watch-history { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.watch-history svg { flex: 0 0 120px; color: var(--accent-text); }
+.watch-history-label { color: var(--muted); font-size: 10px; }
 .watch-actions { display: flex; gap: 6px; margin-top: 8px; }
 .watch-target-form { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 6px; align-items: end; margin-top: 8px; }
 .watch-target-field { min-width: 0; }

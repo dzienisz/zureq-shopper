@@ -6,7 +6,9 @@ import {
 } from './zureq.js';
 import { groupListPicks, MAX_LIST_ITEMS, migrateListState, parseListInput } from './list.js';
 import { setBusy, skeletonHtml } from './loading.js';
-import { addWatch, clearAlerts, getWatches, removeWatch, searchBaseline, setWatchTarget } from './watchlist.js';
+import {
+  addWatch, clearAlerts, getWatches, historyPolyline, historyStats, removeWatch, searchBaseline, setWatchTarget
+} from './watchlist.js';
 
 const $ = (id) => document.getElementById(id);
 const state = {
@@ -697,10 +699,15 @@ async function renderWatches() {
       : '';
     const availability = `${watch.lastInStock === false ? '<span class="stock-chip">Out of stock</span>' : ''}${watch.unavailable ? '<span class="stock-chip">No longer listed by the shop</span>' : ''}`;
     const targetCurrency = watch.baseline.currency || '';
+    const historyPoints = historyPolyline(watch.history);
+    const historyLow = historyStats(watch.history, Date.now()).low30;
+    const historyMarkup = historyPoints
+      ? `<div class="watch-history"><svg viewBox="0 0 120 28" width="120" height="28" role="img" aria-label="Price history: ${watch.history.length} points, lowest in 30 days ${esc(historyLow ?? '—')} ${esc(targetCurrency)}"><polyline points="${esc(historyPoints)}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg><span class="watch-history-label">Lowest in 30 days: ${esc(historyLow ?? '—')} ${esc(targetCurrency)}</span></div>`
+      : '';
     const targetId = `watch-target-${watch.id}`;
     const targetCurrencyId = `watch-target-currency-${watch.id}`;
     const targetErrorId = `watch-target-error-${watch.id}`;
-    return `<article class="watch-item" data-watch-id="${esc(watch.id)}"><h3>${esc(watch.name)} ${alertLabel}</h3><div class="watch-meta"><span class="watch-tag">${esc(watch.type)}</span>${watch.country ? ` · ${esc(watch.country)}` : ''}</div><div class="watch-meta">Watching since ${esc(watch.baseline.price)} ${esc(targetCurrency)}</div>${targetLine}${availability}<div class="watch-meta">${lastLine}</div><form class="watch-target-form" novalidate><label class="watch-target-field" for="${esc(targetId)}">Notify at or below<input id="${esc(targetId)}" type="number" min="0.01" step="any" value="${targetPrice ?? ''}" aria-label="Notify at or below ${esc(targetCurrency)}" aria-describedby="${esc(targetCurrencyId)} ${esc(targetErrorId)}" data-action="watch-target-input"></label><span id="${esc(targetCurrencyId)}" class="watch-target-currency">${esc(targetCurrency)}</span><button class="secondary" type="submit" data-action="save-watch-target">Save</button><button class="secondary" type="button" data-action="clear-watch-target"${targetPrice == null ? ' disabled' : ''}>Clear</button><p id="${esc(targetErrorId)}" class="watch-target-error hint hidden" role="alert"></p></form><div class="watch-actions"><button class="secondary" data-action="watch-search">Search</button><button class="secondary" data-action="remove-watch">Remove</button></div></article>`;
+    return `<article class="watch-item" data-watch-id="${esc(watch.id)}"><h3>${esc(watch.name)} ${alertLabel}</h3><div class="watch-meta"><span class="watch-tag">${esc(watch.type)}</span>${watch.country ? ` · ${esc(watch.country)}` : ''}</div><div class="watch-meta">Watching since ${esc(watch.baseline.price)} ${esc(targetCurrency)}</div>${targetLine}${availability}<div class="watch-meta">${lastLine}</div>${historyMarkup}<form class="watch-target-form" novalidate><label class="watch-target-field" for="${esc(targetId)}">Notify at or below<input id="${esc(targetId)}" type="number" min="0.01" step="any" value="${targetPrice ?? ''}" aria-label="Notify at or below ${esc(targetCurrency)}" aria-describedby="${esc(targetCurrencyId)} ${esc(targetErrorId)}" data-action="watch-target-input"></label><span id="${esc(targetCurrencyId)}" class="watch-target-currency">${esc(targetCurrency)}</span><button class="secondary" type="submit" data-action="save-watch-target">Save</button><button class="secondary" type="button" data-action="clear-watch-target"${targetPrice == null ? ' disabled' : ''}>Clear</button><p id="${esc(targetErrorId)}" class="watch-target-error hint hidden" role="alert"></p></form><div class="watch-actions"><button class="secondary" data-action="watch-search">Search</button><button class="secondary" data-action="remove-watch">Remove</button></div></article>`;
   }).join('') : '<p class="hint">Nothing watched yet. Use “Watch” on a product or “Watch this search” under results.</p>';
 }
 

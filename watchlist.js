@@ -10,7 +10,51 @@ export const WATCH_INTERVALS = Object.freeze({
 
 const WATCH_KEY = 'zureqWatchlist';
 const MAX_WATCHES = 25;
+const MAX_HISTORY_POINTS = 90;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const ALERT_REASONS = new Set(['target', 'cheaper', 'restock']);
+
+function normalizeHistory(history) {
+  if (!Array.isArray(history)) return [];
+  return history
+    .filter((point) => point
+      && Number.isFinite(point.t)
+      && Number.isFinite(point.p))
+    .map(({ t, p }) => ({ t, p }))
+    .sort((a, b) => a.t - b.t)
+    .slice(-MAX_HISTORY_POINTS);
+}
+
+export function historyStats(history, now, days = 30) {
+  if (!Number.isFinite(now)) return { low30: null, high30: null, points: 0 };
+  const end = now;
+  const duration = Number.isFinite(days) && days >= 0 ? days * DAY_IN_MS : 30 * DAY_IN_MS;
+  const points = normalizeHistory(history).filter(({ t }) => t >= end - duration && t <= end);
+  const prices = points.map(({ p }) => p);
+  return {
+    low30: prices.length ? Math.min(...prices) : null,
+    high30: prices.length ? Math.max(...prices) : null,
+    points: prices.length
+  };
+}
+
+export function historyPolyline(history, width = 120, height = 28) {
+  const points = normalizeHistory(history);
+  if (points.length < 2 || !Number.isFinite(width) || !Number.isFinite(height) || width <= 4 || height <= 4) {
+    return '';
+  }
+  const padding = 2;
+  const min = Math.min(...points.map(({ p }) => p));
+  const max = Math.max(...points.map(({ p }) => p));
+  const priceRange = max - min;
+  return points.map(({ p }, index) => {
+    const x = padding + index * (width - padding * 2) / (points.length - 1);
+    const y = priceRange === 0
+      ? height / 2
+      : height - padding - (p - min) * (height - padding * 2) / priceRange;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+}
 
 export function searchBaseline(products) {
   const currencies = new Map();
@@ -51,6 +95,7 @@ function newId() {
 
 function normalizeWatch(partial = {}) {
   const targetPrice = Number(partial.targetPrice);
+  const createdAt = Number.isFinite(partial.createdAt) ? partial.createdAt : Date.now();
   return {
     id: partial.id || newId(),
     type: partial.type === 'product' ? 'product' : 'query',
@@ -71,9 +116,10 @@ function normalizeWatch(partial = {}) {
     lastCurrency: partial.lastCurrency ?? null,
     lastCheckedAt: partial.lastCheckedAt ?? null,
     lastResult: partial.lastResult ?? null,
+    history: normalizeHistory(partial.history),
     alert: Boolean(partial.alert),
     alertReason: ALERT_REASONS.has(partial.alertReason) ? partial.alertReason : null,
-    createdAt: partial.createdAt || Date.now()
+    createdAt
   };
 }
 
@@ -129,6 +175,13 @@ export async function saveWatches(list) {
 
 export async function addWatch(partial) {
   const watch = normalizeWatch(partial);
+  const baselinePrice = partial?.baseline?.price;
+  if (!watch.history.length
+    && baselinePrice != null
+    && !(typeof baselinePrice === 'string' && !baselinePrice.trim())
+    && Number.isFinite(Number(baselinePrice))) {
+    watch.history = [{ t: watch.createdAt, p: Number(baselinePrice) }];
+  }
   const watches = await getWatches();
   const isSame = (item) => item.type === watch.type
     && item.query === watch.query
@@ -240,6 +293,13 @@ export async function checkWatchlist(callTool, { notify = () => {}, setBadge = (
         updated = applyResult(watch, evaluateWatch(watch, data?.products || []), checkedAt);
       }
       applyAlertState(watch, updated);
+      if (Number.isFinite(updated.lastPrice)
+        && (watch.type !== 'product' || updated.lastInStock === true)) {
+        updated.history = normalizeHistory([
+          ...watch.history,
+          { t: checkedAt, p: updated.lastPrice }
+        ]);
+      }
       next[index] = updated;
       checked += 1;
       if (!watch.alert && updated.alert) newlyAlerting.push(updated);
