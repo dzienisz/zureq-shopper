@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  connect, disconnect, getAccessToken, getClientId, isConnected, pkceChallenge, refreshAccessToken
+  connect, disconnect, getAccessToken, getClientId, isConnected, pkceChallenge, refreshAccessToken,
+  ZUREQ_CLIENT_ID, ZUREQ_REDIRECT_URIS
 } from '../auth.js';
 import { callTool } from '../zureq.js';
 
@@ -152,7 +153,38 @@ test('connect maps a closed sign-in window to AUTH_DENIED', async () => {
   await assert.rejects(connect(), (error) => error.code === 'AUTH_DENIED');
 });
 
-test('dynamic client registration is cached by redirect URI and fixed IDs skip registration', async () => {
+test('getClientId uses the fixed client for registered store redirects without registering', async () => {
+  const { chrome, localStore } = setup();
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests += 1;
+    throw new Error('unexpected registration request');
+  };
+
+  for (const redirectUri of ZUREQ_REDIRECT_URIS) {
+    chrome.identity.getRedirectURL = () => redirectUri;
+    assert.equal(await getClientId(), ZUREQ_CLIENT_ID);
+  }
+
+  assert.equal(requests, 0);
+  assert.equal(Object.hasOwn(localStore, 'zureqOAuthClient'), false);
+});
+
+test('getClientId falls back to dynamic registration for unknown redirects', async () => {
+  const redirectUri = 'https://dev-extension.chromiumapp.org/';
+  const { localStore } = setup({ redirectUri });
+  let registration;
+  globalThis.fetch = async (_url, options) => {
+    registration = JSON.parse(options.body);
+    return response({ client_id: 'dynamic-client' });
+  };
+
+  assert.equal(await getClientId(), 'dynamic-client');
+  assert.deepEqual(registration.redirect_uris, [redirectUri]);
+  assert.equal(localStore.zureqOAuthClient.redirectUri, redirectUri);
+});
+
+test('dynamic client registration is cached by redirect URI when the fixed client is disabled', async () => {
   const { chrome, localStore } = setup();
   let registrations = 0;
   globalThis.fetch = async (_url, options) => {
@@ -161,13 +193,13 @@ test('dynamic client registration is cached by redirect URI and fixed IDs skip r
     return response({ client_id: `dynamic-${registrations}` });
   };
 
-  assert.equal(await getClientId(), 'dynamic-1');
-  assert.equal(await getClientId(), 'dynamic-1');
+  assert.equal(await getClientId(''), 'dynamic-1');
+  assert.equal(await getClientId(''), 'dynamic-1');
   assert.equal(registrations, 1);
   chrome.identity.getRedirectURL = () => 'https://another-extension.chromiumapp.org/';
-  assert.equal(await getClientId(), 'dynamic-2');
+  assert.equal(await getClientId(''), 'dynamic-2');
   assert.equal(localStore.zureqOAuthClient.redirectUri, 'https://another-extension.chromiumapp.org/');
-  assert.equal(await getClientId('pre-registered-client'), 'pre-registered-client');
+  assert.equal(await getClientId(''), 'dynamic-2');
   assert.equal(registrations, 2);
 });
 

@@ -1,6 +1,11 @@
 import { ZureqError } from './zureq.js';
 
-export const ZUREQ_CLIENT_ID = '';
+export const ZUREQ_CLIENT_ID = 'dyn_3tbXW1mDdlWN_j5zxvs_yC95L3UOrrpP';
+export const ZUREQ_REDIRECT_URIS = [
+  'https://lgmpclicbbpjabhihbmpjdokopeiofpj.chromiumapp.org/',
+  'https://oejmieokkpamieajepjogejppmnndbkk.chromiumapp.org/',
+  'https://e145d6eba02e70a25abc65f6a9d205190096579d.extensions.allizom.org/'
+];
 
 const AUTH_URL = 'https://chat.zureq.io';
 const RESOURCE = 'https://api.zureq.io/mcp';
@@ -102,9 +107,9 @@ export async function pkceChallenge(verifier) {
 
 export async function getClientId(fixed = ZUREQ_CLIENT_ID) {
   const clientId = String(fixed || '').trim();
-  if (clientId) return clientId;
-
   const redirectUri = globalThis.chrome.identity.getRedirectURL();
+  if (clientId && ZUREQ_REDIRECT_URIS.includes(redirectUri)) return clientId;
+
   const storage = localStorage();
   const { zureqOAuthClient = null } = await storage.get({ zureqOAuthClient: null });
   if (zureqOAuthClient?.redirectUri === redirectUri && zureqOAuthClient.clientId) {
