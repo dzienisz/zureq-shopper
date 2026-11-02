@@ -684,13 +684,14 @@ async function renderWatches() {
     const lastLine = last
       ? `Last: ${esc(watch.lastPrice)} ${esc(watch.lastCurrency || '')} · ${esc(last.shopName || last.shopId || 'Unknown shop')} · ${relativeTime(watch.lastCheckedAt)}`
       : 'Not checked yet';
-    const cheaper = watch.lastPrice != null && Number(watch.lastPrice) < Number(watch.baseline.price);
     const targetPrice = watch.targetPrice != null ? Number(watch.targetPrice) : null;
     const alertLabel = watch.alert && watch.alertReason === 'restock'
       ? '<span class="cheaper">Back in stock!</span>'
-      : targetPrice != null
-      ? (watch.alert ? '<span class="cheaper">Target reached!</span>' : '')
-      : (cheaper ? '<span class="cheaper">Cheaper!</span>' : '');
+      : watch.alert && watch.alertReason === 'target'
+      ? '<span class="cheaper">Target reached!</span>'
+      : watch.alert && watch.alertReason === 'cheaper'
+      ? '<span class="cheaper">Cheaper!</span>'
+      : '';
     const targetLine = targetPrice != null
       ? `<div class="watch-meta">Target ≤ ${esc(targetPrice)} ${esc(watch.baseline.currency || '')}</div>`
       : '';
