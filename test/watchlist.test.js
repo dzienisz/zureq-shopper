@@ -60,6 +60,9 @@ test('addWatch normalizes target prices to finite positive values', async () => 
   assert.equal((await makeWatch('negative', -1)).targetPrice, null);
   assert.equal((await makeWatch('infinite', Number.POSITIVE_INFINITY)).targetPrice, null);
   assert.equal((await makeWatch('garbage', 'not-a-price')).targetPrice, null);
+  const defaults = await makeWatch('defaults', null);
+  assert.equal(defaults.lastInStock, null);
+  assert.equal(defaults.unavailable, false);
   cleanup();
 });
 
@@ -251,6 +254,181 @@ test('checkWatchlist alerts on target-hit transitions and rearms after the targe
   watch = (await getWatches())[0];
   assert.equal(watch.targetHit, true);
   assert.equal(watch.alert, true);
+  cleanup();
+});
+
+test('product watches fetch the live product by shopId and sku', async () => {
+  const cleanup = storageHarness([
+    {
+      id: 'product-watch',
+      type: 'product',
+      query: 'lamp',
+      country: 'PL',
+      shopId: 'shop-a',
+      sku: 'sku-1',
+      name: 'Lamp',
+      baseline: { price: 100, currency: 'PLN' },
+      lastInStock: true,
+      alert: false
+    }
+  ]);
+  let request;
+  const result = await checkWatchlist(async (name, args) => {
+    request = { name, args };
+    return {
+      product: {
+        shopId: 'shop-a',
+        sku: 'sku-1',
+        name: 'Lamp',
+        shopName: 'Shop A',
+        price: '95',
+        currency: 'PLN',
+        inStock: true
+      }
+    };
+  });
+  assert.deepEqual(request, { name: 'get_product', args: { shopId: 'shop-a', sku: 'sku-1' } });
+  assert.equal(result.checked, 1);
+  const watch = (await getWatches())[0];
+  assert.equal(watch.lastInStock, true);
+  assert.equal(watch.lastPrice, 95);
+  assert.equal(watch.unavailable, false);
+  cleanup();
+});
+
+test('product watches alert once on a restock transition', async () => {
+  const cleanup = storageHarness([
+    {
+      id: 'restock-watch',
+      type: 'product',
+      query: 'lamp',
+      country: 'PL',
+      shopId: 'shop-a',
+      sku: 'sku-1',
+      name: 'Lamp',
+      baseline: { price: 100, currency: 'PLN' },
+      lastPrice: 90,
+      lastCurrency: 'PLN',
+      lastInStock: true,
+      alert: false
+    }
+  ]);
+  const notifications = [];
+  let inStock = false;
+  const check = () => checkWatchlist(
+    async () => ({
+      product: {
+        shopId: 'shop-a',
+        sku: 'sku-1',
+        name: 'Lamp',
+        shopName: 'Shop A',
+        price: 80,
+        currency: 'PLN',
+        inStock
+      }
+    }),
+    { notify: (watch) => notifications.push({ id: watch.id, reason: watch.alertReason }) }
+  );
+
+  const outOfStock = await check();
+  assert.equal(outOfStock.alerts, 0);
+  assert.deepEqual(notifications, []);
+  assert.equal((await getWatches())[0].lastInStock, false);
+
+  inStock = true;
+  const restocked = await check();
+  assert.equal(restocked.alerts, 1);
+  assert.deepEqual(notifications, [{ id: 'restock-watch', reason: 'restock' }]);
+  let watch = (await getWatches())[0];
+  assert.equal(watch.alertReason, 'restock');
+  assert.equal(watch.lastInStock, true);
+
+  await check();
+  watch = (await getWatches())[0];
+  assert.deepEqual(notifications, [{ id: 'restock-watch', reason: 'restock' }]);
+  assert.equal(watch.alertReason, 'restock');
+  cleanup();
+});
+
+test('an out-of-stock product price drop does not alert', async () => {
+  const cleanup = storageHarness([
+    {
+      id: 'out-of-stock-watch',
+      type: 'product',
+      query: 'lamp',
+      country: 'PL',
+      shopId: 'shop-a',
+      sku: 'sku-1',
+      name: 'Lamp',
+      baseline: { price: 100, currency: 'PLN' },
+      lastPrice: 100,
+      lastInStock: true,
+      alert: false
+    }
+  ]);
+  const notifications = [];
+  const result = await checkWatchlist(
+    async () => ({
+      price: 80,
+      currency: 'PLN',
+      inStock: false,
+      shopId: 'shop-a',
+      sku: 'sku-1',
+      name: 'Lamp'
+    }),
+    { notify: (watch) => notifications.push(watch.id) }
+  );
+  assert.equal(result.alerts, 0);
+  assert.deepEqual(notifications, []);
+  const watch = (await getWatches())[0];
+  assert.equal(watch.lastInStock, false);
+  assert.equal(watch.lastPrice, 80);
+  assert.equal(watch.alert, false);
+  assert.equal(watch.alertReason, null);
+  cleanup();
+});
+
+test('a missing product SKU marks its watch unavailable and continues', async () => {
+  const cleanup = storageHarness([
+    {
+      id: 'missing-watch',
+      type: 'product',
+      query: 'lamp',
+      country: 'PL',
+      shopId: 'shop-a',
+      sku: 'missing',
+      name: 'Lamp',
+      baseline: { price: 100, currency: 'PLN' },
+      lastInStock: false,
+      alert: false
+    },
+    {
+      id: 'query-watch',
+      type: 'query',
+      query: 'desk',
+      country: 'PL',
+      name: 'Desk',
+      baseline: { price: 100, currency: 'PLN' },
+      alert: false
+    }
+  ]);
+  const calls = [];
+  const notifications = [];
+  const result = await checkWatchlist(async (name, args) => {
+    calls.push({ name, args });
+    if (name === 'get_product') {
+      throw new ZureqError('API_ERROR', 'Shop shop-a has no product with sku missing');
+    }
+    return { products: [{ name: 'Desk', price: 80, currency: 'PLN' }] };
+  }, { notify: (watch) => notifications.push(watch.id) });
+
+  assert.equal(result.checked, 2);
+  assert.deepEqual(calls.map((call) => call.name), ['get_product', 'search_products']);
+  const watches = await getWatches();
+  assert.equal(watches.find((watch) => watch.id === 'missing-watch').unavailable, true);
+  assert.equal(watches.find((watch) => watch.id === 'missing-watch').alert, false);
+  assert.equal(watches.find((watch) => watch.id === 'query-watch').alert, true);
+  assert.deepEqual(notifications, ['query-watch']);
   cleanup();
 });
 

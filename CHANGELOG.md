@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 - Watch supports optional target prices with alerts when an item reaches the target.
+- Watch product checks use live stock, alert when items return, and identify products no longer listed by the shop.
 
 ## [1.5.0] - 2026-10-31
 
