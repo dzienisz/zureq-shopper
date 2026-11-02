@@ -276,7 +276,6 @@ async function search(event) {
   Object.keys(args).forEach((key) => args[key] === undefined && delete args[key]);
   const button = event?.submitter || $('search-form').querySelector('[type="submit"]');
   const results = $('search-results');
-  const previousResults = results.innerHTML;
   state.searching = true;
   setBusy(button, true, 'Searching…');
   results.setAttribute('aria-busy', 'true');
@@ -290,7 +289,10 @@ async function search(event) {
     renderHistory();
     renderProducts();
   } catch (error) {
-    results.innerHTML = previousResults;
+    state.products = [];
+    state.details.clear();
+    state.lastSearch = null;
+    results.innerHTML = '';
     handleError(error);
   } finally {
     state.searching = false;
