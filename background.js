@@ -44,6 +44,15 @@ async function scheduleWatchAlarm() {
 function notifyWatch(watch) {
   const price = watch.lastPrice ?? '—';
   const currency = watch.lastCurrency || watch.baseline.currency || '';
+  if (watch.targetPrice != null) {
+    const targetCurrency = watch.baseline.currency || currency;
+    return chrome.notifications.create(`zureq-watch-${watch.id}`, {
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: 'Target price reached on ZUREQ',
+      message: `${watch.name}: now ${price} ${targetCurrency} (target ≤ ${watch.targetPrice} ${targetCurrency})`
+    });
+  }
   return chrome.notifications.create(`zureq-watch-${watch.id}`, {
     type: 'basic',
     iconUrl: 'icons/icon128.png',

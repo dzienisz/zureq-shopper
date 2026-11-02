@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Watch supports optional target prices with alerts when an item reaches the target.
+
 ## [1.5.0] - 2026-10-31
 
 - Removed: the Compare tab and the “Compare markets” context-menu entry. Market comparisons often matched different products in each country; Search in your own country is more reliable.

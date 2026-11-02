@@ -49,6 +49,7 @@ function newId() {
 }
 
 function normalizeWatch(partial = {}) {
+  const targetPrice = Number(partial.targetPrice);
   return {
     id: partial.id || newId(),
     type: partial.type === 'product' ? 'product' : 'query',
@@ -61,6 +62,7 @@ function normalizeWatch(partial = {}) {
       price: Number(partial.baseline?.price),
       currency: String(partial.baseline?.currency || '').toUpperCase()
     },
+    targetPrice: Number.isFinite(targetPrice) && targetPrice > 0 ? targetPrice : null,
     lastPrice: partial.lastPrice ?? null,
     lastCurrency: partial.lastCurrency ?? null,
     lastCheckedAt: partial.lastCheckedAt ?? null,
@@ -81,9 +83,11 @@ export function evaluateWatch(watch, products) {
     .filter(({ price }) => price != null)
     .sort((a, b) => a.price - b.price);
   const best = candidates[0]?.product || null;
+  const bestPrice = finitePrice(best);
   return {
     best,
-    cheaper: Boolean(best && finitePrice(best) < Number(watch.baseline?.price))
+    cheaper: Boolean(best && bestPrice < Number(watch.baseline?.price)),
+    hitTarget: watch.targetPrice != null && bestPrice != null && bestPrice <= Number(watch.targetPrice)
   };
 }
 
@@ -102,7 +106,7 @@ export function applyResult(watch, evaluation, now = Date.now()) {
       shopId: best.shopId,
       sku: best.sku
     } : null,
-    alert: Boolean(evaluation?.cheaper)
+    alert: Boolean(watch.targetPrice != null ? evaluation?.hitTarget : evaluation?.cheaper)
   };
 }
 
@@ -132,6 +136,16 @@ export async function addWatch(partial) {
 
 export async function removeWatch(id) {
   const next = (await getWatches()).filter((watch) => watch.id !== id);
+  await saveWatches(next);
+  return next;
+}
+
+export async function setWatchTarget(id, price) {
+  const targetPrice = price == null ? null : Number(price);
+  const normalizedTarget = Number.isFinite(targetPrice) && targetPrice > 0 ? targetPrice : null;
+  const next = (await getWatches()).map((watch) => watch.id === id
+    ? { ...watch, targetPrice: normalizedTarget, alert: false }
+    : watch);
   await saveWatches(next);
   return next;
 }
