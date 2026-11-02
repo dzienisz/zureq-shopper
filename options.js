@@ -101,7 +101,12 @@ async function init() {
   } catch {}
 }
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if ((areaName === 'local' && changes.zureqAuth) || (areaName === 'sync' && changes.zureqApiKey)) {
+  if (
+    (areaName === 'local'
+      && changes.zureqAuth
+      && Boolean(changes.zureqAuth.oldValue?.refresh) !== Boolean(changes.zureqAuth.newValue?.refresh))
+    || (areaName === 'sync' && changes.zureqApiKey)
+  ) {
     renderAccount();
   }
 });

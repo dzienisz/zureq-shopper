@@ -72,7 +72,7 @@ function renderUsageBadge() {
   const badge = $('usage-toggle');
   if (!badge) return;
   const label = usage.noKey
-    ? 'Add key'
+    ? 'Connect'
     : usage.error
       ? '—'
       : Number.isFinite(usage.remaining)
@@ -979,7 +979,11 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     updateCredentialState();
     return;
   }
-  if (areaName === 'local' && changes.zureqAuth) updateCredentialState();
+  if (
+    areaName === 'local'
+    && changes.zureqAuth
+    && Boolean(changes.zureqAuth.oldValue?.refresh) !== Boolean(changes.zureqAuth.newValue?.refresh)
+  ) updateCredentialState();
   if (!['session', 'local'].includes(areaName)) return;
   if (areaName === 'local' && changes.zureqWatchlist && activeTab() === 'watch') {
     renderWatches();
