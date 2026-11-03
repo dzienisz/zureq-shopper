@@ -48,6 +48,11 @@ h2 { font-size: 18px; }
 .usage-note { margin-bottom: 0; }
 .usage-error { color: var(--danger); }
 .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); padding: 0 8px; overflow: hidden; }
+.rate-prompt { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 16px 10px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.rate-prompt p { flex: 1; min-width: 0; color: var(--ink); font-size: 11px; line-height: 1.35; }
+.rate-prompt-actions { display: flex; gap: 5px; }
+.rate-prompt button { padding: 6px 8px; font-size: 10px; white-space: nowrap; }
+.rate-prompt .primary { width: auto; margin: 0; }
 .tab { flex: 1 1 0; min-width: 0; color: var(--muted); border: 0; background: none; padding: 10px 6px; border-bottom: 2px solid transparent; font-weight: 700; text-align: center; white-space: nowrap; }
 .tab.active { color: var(--ink); border-bottom-color: var(--ink); }
 main { padding: 14px 16px 24px; }

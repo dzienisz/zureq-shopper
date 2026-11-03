@@ -2,6 +2,7 @@ manifest.json
 background.js
 zureq.js
 auth.js
+stores.js
 list.js
 loading.js
 autocompare.js

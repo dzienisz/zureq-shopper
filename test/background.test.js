@@ -13,6 +13,7 @@ test('registers the anonymous uninstall survey URL and recreates only the Search
   const panelBehaviorCalls = [];
   const installListeners = [];
   const menuCalls = [];
+  const localStore = {};
   globalThis.chrome = {
     runtime: {
       onInstalled: event(installListeners),
@@ -39,7 +40,10 @@ test('registers the anonymous uninstall survey URL and recreates only the Search
     },
     storage: {
       sync: { get: async () => ({}) },
-      local: { get: async () => ({}), set: async () => {} },
+      local: {
+        get: async (defaults = {}) => ({ ...defaults, ...localStore }),
+        set: async (values) => Object.assign(localStore, values)
+      },
       session: { set: async () => {} },
       onChanged: event()
     },
@@ -59,9 +63,14 @@ test('registers the anonymous uninstall survey URL and recreates only the Search
     }
   };
 
+  let installedAt;
   try {
     await import(`../background.js?uninstall-survey=${Date.now()}`);
     installListeners[0]();
+    installListeners[1]({ reason: 'update' });
+    await new Promise((resolve) => setImmediate(resolve));
+    installedAt = localStore.installedAt;
+    installListeners[1]({ reason: 'browser_update' });
     await new Promise((resolve) => setImmediate(resolve));
   } finally {
     delete globalThis.chrome;
@@ -81,6 +90,8 @@ test('registers the anonymous uninstall survey URL and recreates only the Search
   );
   assert.match(calls[0], /^https:\/\/docs\.google\.com\/forms\//);
   assert.equal(calls[0].includes('?'), false);
+  assert.equal(Number.isFinite(installedAt), true);
+  assert.equal(localStore.installedAt, installedAt);
 });
 
 test('opens the Firefox sidebar synchronously for action and context-menu requests', async () => {
