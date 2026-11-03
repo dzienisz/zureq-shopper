@@ -11,6 +11,9 @@ ZUREQ Shopper is designed to keep personal shopping data under your control.
   contacted only for sign-in, token refresh, and disconnect.
 - Search history, the current build state, and the market list cache are stored
   in the browser's extension storage (`chrome.storage.local`).
+- `installedAt`, `successfulSearches`, `ratePromptDone`, and `ratePromptShown`
+  are stored in `chrome.storage.local` only to decide when to show the rating
+  prompt; they are not sent anywhere.
 - The watchlist is stored locally, and its scheduled checks send watch queries
   to the Zureq API on the interval selected in Options.
 - On supported Allegro, Amazon, Ceneo, eBay, x-kom, and MediaExpert pages, the

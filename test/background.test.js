@@ -14,6 +14,7 @@ test('registers the anonymous uninstall survey URL and recreates only the Search
   const installListeners = [];
   const menuCalls = [];
   const tabCalls = [];
+  const localStore = {};
   globalThis.chrome = {
     runtime: {
       onInstalled: event(installListeners),
@@ -44,7 +45,10 @@ test('registers the anonymous uninstall survey URL and recreates only the Search
     },
     storage: {
       sync: { get: async () => ({}) },
-      local: { get: async () => ({}), set: async () => {} },
+      local: {
+        get: async (defaults = {}) => ({ ...defaults, ...localStore }),
+        set: async (values) => Object.assign(localStore, values)
+      },
       session: { set: async () => {} },
       onChanged: event()
     },
@@ -64,6 +68,7 @@ test('registers the anonymous uninstall survey URL and recreates only the Search
     }
   };
 
+  let installedAt;
   try {
     await import(`../background.js?uninstall-survey=${Date.now()}`);
     installListeners[0]();
@@ -72,6 +77,10 @@ test('registers the anonymous uninstall survey URL and recreates only the Search
     assert.deepEqual(tabCalls, []);
     installListeners[1]({ reason: 'install' });
     assert.deepEqual(tabCalls, [{ url: 'chrome-extension://test/welcome.html' }]);
+    installListeners[2]({ reason: 'update' });
+    await new Promise((resolve) => setImmediate(resolve));
+    installedAt = localStore.installedAt;
+    installListeners[2]({ reason: 'browser_update' });
     await new Promise((resolve) => setImmediate(resolve));
   } finally {
     delete globalThis.chrome;
@@ -91,6 +100,8 @@ test('registers the anonymous uninstall survey URL and recreates only the Search
   );
   assert.match(calls[0], /^https:\/\/docs\.google\.com\/forms\//);
   assert.equal(calls[0].includes('?'), false);
+  assert.equal(Number.isFinite(installedAt), true);
+  assert.equal(localStore.installedAt, installedAt);
 });
 
 test('opens the Firefox sidebar synchronously for action and context-menu requests', async () => {

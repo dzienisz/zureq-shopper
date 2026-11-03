@@ -28,6 +28,15 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 chrome.runtime.onStartup.addListener(createMenus);
 
+async function ensureInstalledAt() {
+  const { installedAt = null } = await chrome.storage.local.get({ installedAt: null });
+  if (!Number.isFinite(installedAt)) {
+    await chrome.storage.local.set({ installedAt: Date.now() });
+  }
+}
+
+chrome.runtime.onInstalled.addListener(() => { ensureInstalledAt().catch(() => {}); });
+
 const sidebarAction = globalThis.browser?.sidebarAction;
 if (chrome.sidePanel) {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});

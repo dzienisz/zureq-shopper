@@ -7,6 +7,7 @@ import {
 import { groupListPicks, MAX_LIST_ITEMS, migrateListState, parseListInput } from './list.js';
 import { setBusy, skeletonHtml } from './loading.js';
 import { connect, isConnected } from './auth.js';
+import { shouldShowRatePrompt, storeFor } from './stores.js';
 import {
   addWatch, clearAlerts, getWatches, historyPolyline, historyStats, removeWatch, searchBaseline, setWatchTarget
 } from './watchlist.js';
@@ -25,9 +26,42 @@ const state = {
 let panelReady = false;
 let queuedPending = null;
 let handledPending = '';
+let ratePromptOpen = false;
+let localCounterWrite = Promise.resolve();
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const productKey = (product) => `${product.shopId}::${product.sku}`;
 const listDetailsRequests = new Map();
+function incrementLocalCounter(key) {
+  localCounterWrite = localCounterWrite.catch(() => {}).then(async () => {
+    const stored = await chrome.storage.local.get({ [key]: 0 });
+    const current = Number(stored[key] || 0);
+    await chrome.storage.local.set({ [key]: Number.isFinite(current) ? current + 1 : 1 });
+  }).catch(() => {});
+  return localCounterWrite;
+}
+async function maybeShowRatePrompt() {
+  if (document.hidden || ratePromptOpen) return;
+  ratePromptOpen = true;
+  try {
+    const promptState = await chrome.storage.local.get({
+      installedAt: null,
+      successfulSearches: 0,
+      ratePromptDone: false,
+      ratePromptShown: 0
+    });
+    if (!shouldShowRatePrompt(promptState, Date.now())) return;
+    await incrementLocalCounter('ratePromptShown');
+    $('rate-prompt').classList.remove('hidden');
+  } catch {}
+}
+function ratePromptVisibilityChanged() {
+  if (document.hidden) {
+    ratePromptOpen = false;
+    $('rate-prompt').classList.add('hidden');
+    return;
+  }
+  maybeShowRatePrompt();
+}
 function imageCandidates(item) {
   return [
     item?.imageUrl, item?.image_url, item?.image, item?.thumbnailUrl,
@@ -292,6 +326,7 @@ async function search(event) {
     state.history = await addSearchHistory(query);
     renderHistory();
     renderProducts();
+    if (state.products.length) await incrementLocalCounter('successfulSearches');
   } catch (error) {
     state.products = [];
     state.details.clear();
@@ -576,6 +611,9 @@ async function searchListItems() {
       renderListSummary();
     }
     completed = true;
+    if (state.list.parts.some((part) => part.candidates?.length)) {
+      await incrementLocalCounter('successfulSearches');
+    }
   } catch (error) {
     handleError(error);
   } finally {
@@ -774,6 +812,8 @@ function refreshUsageOnFocus() {
 }
 window.addEventListener('focus', refreshUsageOnFocus);
 document.addEventListener('visibilitychange', refreshUsageOnFocus);
+window.addEventListener('focus', maybeShowRatePrompt);
+document.addEventListener('visibilitychange', ratePromptVisibilityChanged);
 $('search-form').addEventListener('submit', search);
 $('sort').addEventListener('change', renderProducts);
 $('usage-toggle').addEventListener('click', toggleUsagePopover);
@@ -792,6 +832,16 @@ $('no-key-connect').addEventListener('click', async (event) => {
   } finally {
     button.disabled = false;
   }
+});
+$('rate-prompt-rate').addEventListener('click', () => {
+  const store = storeFor({ runtimeId: chrome.runtime.id, userAgent: navigator.userAgent });
+  chrome.storage.local.set({ ratePromptDone: true });
+  chrome.tabs.create({ url: store.reviewUrl });
+  $('rate-prompt').classList.add('hidden');
+});
+$('rate-prompt-dismiss').addEventListener('click', () => {
+  chrome.storage.local.set({ ratePromptDone: true });
+  $('rate-prompt').classList.add('hidden');
 });
 $('history').addEventListener('click', (event) => { const button = event.target.closest('.history-chip'); if (button) { $('query').value = button.dataset.query; search(event); } });
 $('search-results').addEventListener('click', (event) => {
@@ -1046,3 +1096,4 @@ async function init() {
   } catch (error) { handleError(error); }
 }
 init();
+maybeShowRatePrompt();
