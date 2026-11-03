@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.7.1] - 2026-11-03
+
+- Options: more space between the logo and the ZUREQ account card.
+
 ## [1.7.0] - 2026-11-02
 
 - Add “Connect with ZUREQ” sign-in with local-only tokens; API keys remain available as a fallback.
