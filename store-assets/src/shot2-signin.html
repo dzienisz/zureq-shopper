@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><link rel="stylesheet" href="shared.css"><link rel="stylesheet" href="../../sidepanel.css">
+<style>
+.mock-panel .empty-state { padding-top: 60px; }
+.consent {
+  position: absolute; right: 70px; bottom: 56px; width: 380px; padding: 26px 26px 24px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 22px;
+  box-shadow: 0 25px 70px #15171926; font-size: 14px;
+}
+.consent-app { display: flex; gap: 14px; align-items: center; }
+.consent-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--chip); display: grid; place-items: center; font-size: 20px; }
+.consent-app small { display: block; color: var(--muted); font-size: 12px; }
+.consent-app strong { display: block; font-size: 15px; margin: 2px 0; }
+.consent h3 { margin: 20px 0 8px; font-size: 24px; letter-spacing: -.02em; }
+.consent p { margin: 0 0 14px; color: var(--muted); line-height: 1.45; }
+.consent ul { margin: 0 0 20px; padding: 0; list-style: none; line-height: 1.9; }
+.consent-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.consent-actions span { padding: 12px; border-radius: 99px; text-align: center; font-weight: 600; border: 1px solid var(--line); }
+.consent-actions .allow { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+</style></head>
+<body><div class="canvas">
+  <div class="brand"><img src="../../icons/zureq-mark.svg" width="28" height="28" alt=""><span class="brand-name">ZUREQ</span><span class="brand-product">Shopper</span></div>
+  <div class="headline">Sign in. <em>No API key needed.</em></div>
+  <div class="subline">Connect your ZUREQ account in the side panel, allow ZUREQ Shopper once, and start searching. API keys still work as a fallback.</div>
+  <div class="stage"><div class="mock-panel">
+    <header class="app-header"><h1 class="brand-lockup" aria-label="ZUREQ Shopper"><img src="../../icons/zureq-mark.svg" width="28" height="28" alt=""><span class="brand-name">ZUREQ</span><span class="brand-product">Shopper</span></h1><div class="header-actions"><button class="usage-badge">Connect</button><button class="icon-button">⚙</button></div></header>
+    <nav class="tabs"><button class="tab active">Search</button><button class="tab">List</button><button class="tab">Watch</button></nav>
+    <main><section class="empty-state">
+      <h2>Connect your ZUREQ account</h2>
+      <p>Sign in to search, build lists, and watch products with your ZUREQ credits.</p>
+      <button class="primary">Connect with ZUREQ</button>
+      <button class="secondary">Use an API key</button>
+    </section></main>
+  </div></div>
+  <div class="consent">
+    <div class="consent-app"><div class="consent-icon">🛡</div><div><small>Connect with Zureq</small><strong>ZUREQ Shopper</strong><small>github.com</small></div></div>
+    <h3>Allow ZUREQ Shopper?</h3>
+    <p>ZUREQ Shopper wants to use the Zureq network MCP on your behalf.</p>
+    <ul><li>Search shops and products</li><li>Create checkout links</li><li>Use this account's monthly credits</li></ul>
+    <div class="consent-actions"><span class="allow">Allow</span><span>Deny</span></div>
+  </div>
+  <div class="callout">Sign-in tokens stay in local browser storage</div>
+</div></body></html>

@@ -117,6 +117,7 @@ Shopping
 | File | Size | Store slot |
 | --- | --- | --- |
 | shot1-search.png | 1280×800 | Screenshot 1 |
+| shot2-signin.png | 1280×800 | Screenshot 2 |
 | shot3-list.png | 1280×800 | Screenshot 3 |
 | shot4-watch.png | 1280×800 | Screenshot 4 |
 | shot5-shop-page.png | 1280×800 | Screenshot 5 |
