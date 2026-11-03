@@ -28,7 +28,7 @@ h2 { margin: 26px 0 8px; font-size: 21px; }
 .brand-name { color: var(--ink); font-size: 12px; font-weight: 600; letter-spacing: .14em; }
 .brand-product { color: var(--muted); font-size: 14px; font-weight: 400; letter-spacing: normal; }
 .intro { color: var(--muted); line-height: 1.5; margin-bottom: 25px; }
-.account-card { padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.account-card { margin-top: 20px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
 .account-card h2 { margin: 0 0 8px; font-size: 18px; }
 #account-status { margin: 0 0 8px; font-weight: 700; }
 #account-hint { margin: 0 0 12px; }
