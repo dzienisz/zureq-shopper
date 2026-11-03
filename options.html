@@ -40,6 +40,16 @@
       <button class="primary" type="submit">Save options</button>
     </form>
     <p id="status" role="status"></p>
+    <section class="recommend-card" aria-labelledby="recommend-heading">
+      <h2 id="recommend-heading">Recommend ZUREQ Shopper</h2>
+      <p>Share the store link with a friend.</p>
+      <div class="recommend-actions">
+        <button class="secondary" id="copy-store-link" type="button">Copy link</button>
+        <button class="secondary hidden" id="share-store-link" type="button">Share…</button>
+        <a id="rate-store-link" target="_blank" rel="noreferrer">Rate it</a>
+      </div>
+      <p id="share-status" class="hint" role="status" aria-live="polite"></p>
+    </section>
   </main>
   <script type="module" src="options.js"></script>
 </body>

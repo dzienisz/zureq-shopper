@@ -1,7 +1,9 @@
 import { ZureqError, callTool, cacheMarkets, getCachedMarkets, normalizeMarkets } from './zureq.js';
 import { connect, disconnect, isConnected } from './auth.js';
+import { storeFor } from './stores.js';
 
 const $ = (id) => document.getElementById(id);
+const store = storeFor({ runtimeId: chrome.runtime.id, userAgent: navigator.userAgent });
 let countriesLoadPromise = null;
 const status = (message, error = false) => {
   $('status').textContent = message;
@@ -103,6 +105,30 @@ $('test-key').addEventListener('click', async () => {
     status(error instanceof ZureqError ? error.message : 'Could not test the connection.', true);
   }
 });
+$('rate-store-link').href = store.reviewUrl;
+$('copy-store-link').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(store.listingUrl);
+    $('share-status').textContent = 'Link copied';
+  } catch {
+    $('share-status').textContent = 'Could not copy the store link.';
+  }
+});
+if (typeof navigator.share === 'function') {
+  $('share-store-link').classList.remove('hidden');
+  $('share-store-link').addEventListener('click', async () => {
+    try {
+      await navigator.share({
+        title: 'ZUREQ Shopper',
+        text: 'Search independent shops from your browser\'s side panel.',
+        url: store.listingUrl
+      });
+      $('share-status').textContent = '';
+    } catch (error) {
+      if (error?.name !== 'AbortError') $('share-status').textContent = 'Could not share the store link.';
+    }
+  });
+}
 async function init() {
   const settings = await chrome.storage.sync.get({ zureqApiKey: '', defaultCountry: '', watchInterval: '24', autoCompare: false });
   $('api-key').value = settings.zureqApiKey;
