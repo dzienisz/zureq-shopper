@@ -33,6 +33,12 @@ h2 { margin: 26px 0 8px; font-size: 21px; }
 #account-status { margin: 0 0 8px; font-weight: 700; }
 #account-hint { margin: 0 0 12px; }
 #disconnect-account { width: 100%; }
+.recommend-card { margin-top: 20px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.recommend-card h2 { margin: 0 0 8px; font-size: 18px; }
+.recommend-card > p:not(.hint) { margin: 0 0 12px; color: var(--muted); }
+.recommend-actions { display: flex; align-items: center; gap: 8px; }
+.recommend-actions a { margin-left: auto; font-size: 12px; }
+#share-status { min-height: 16px; margin: 10px 0 0; }
 details { margin: 0 0 18px; }
 details summary { color: var(--accent-text); cursor: pointer; font-weight: 700; }
 details[open] summary { margin-bottom: 10px; }
