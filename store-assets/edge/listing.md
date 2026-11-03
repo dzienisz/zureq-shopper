@@ -133,6 +133,7 @@ Reuse the existing screenshots and promo tile:
 | File | Size | Store slot |
 | --- | --- | --- |
 | `store-assets/shot1-search.png` | Existing asset | Screenshot |
+| `store-assets/shot2-signin.png` | Existing asset | Screenshot |
 | `store-assets/shot3-list.png` | Existing asset | Screenshot |
 | `store-assets/shot4-watch.png` | Existing asset | Screenshot |
 | `store-assets/shot5-shop-page.png` | Existing asset | Screenshot |
