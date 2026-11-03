@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Welcome to ZUREQ Shopper</title>
+  <link rel="stylesheet" href="welcome.css">
+</head>
+<body>
+  <main class="welcome">
+    <header>
+      <h1 class="brand-lockup" aria-label="ZUREQ Shopper"><img src="icons/zureq-mark.svg" width="28" height="28" alt=""><span class="brand-name">ZUREQ</span><span class="brand-product">Shopper</span></h1>
+      <p class="lede">Welcome to ZUREQ Shopper. Get started in three quick steps.</p>
+    </header>
+    <ol class="steps">
+      <li class="step">
+        <h2>Connect with ZUREQ</h2>
+        <p>Sign in with your ZUREQ account (Google works). Searches use your own ZUREQ credits.</p>
+        <button class="primary" id="connect-account" type="button">Connect with ZUREQ</button>
+        <p id="connect-status" role="status" aria-live="polite"></p>
+        <a class="api-key-link" href="options.html">Use an API key instead</a>
+      </li>
+      <li class="step">
+        <h2>Open the side panel</h2>
+        <p>Search independent shops, build lists, and watch products without leaving your current page.</p>
+        <button class="secondary" id="open-side-panel" type="button">Open the side panel</button>
+        <p id="sidepanel-hint" class="hidden" role="status" aria-live="polite">Click the ZUREQ icon in the toolbar</p>
+      </li>
+      <li class="step">
+        <h2>Search with ZUREQ</h2>
+        <p>Select text on any page, right-click it, then choose <strong>Search Zureq for “your selection”</strong>.</p>
+      </li>
+    </ol>
+  </main>
+  <script type="module" src="welcome.js"></script>
+</body>
+</html>

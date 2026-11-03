@@ -15,6 +15,9 @@ sidepanel.css
 options.html
 options.js
 options.css
+welcome.html
+welcome.js
+welcome.css
 icons/icon16.png
 icons/icon48.png
 icons/icon128.png
