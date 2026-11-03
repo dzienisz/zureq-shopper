@@ -22,6 +22,10 @@ function createMenus() {
 }
 
 chrome.runtime.onInstalled.addListener(createMenus);
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason !== 'install') return;
+  chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') }).catch(() => {});
+});
 chrome.runtime.onStartup.addListener(createMenus);
 
 const sidebarAction = globalThis.browser?.sidebarAction;

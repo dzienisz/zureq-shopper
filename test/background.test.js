@@ -13,14 +13,19 @@ test('registers the anonymous uninstall survey URL and recreates only the Search
   const panelBehaviorCalls = [];
   const installListeners = [];
   const menuCalls = [];
+  const tabCalls = [];
   globalThis.chrome = {
     runtime: {
       onInstalled: event(installListeners),
       onStartup: event(),
       onMessage: event(),
+      getURL: (path) => `chrome-extension://test/${path}`,
       setUninstallURL(url) {
         calls.push(url);
       }
+    },
+    tabs: {
+      create: async (options) => tabCalls.push(options)
     },
     contextMenus: {
       onClicked: event(),
@@ -62,6 +67,11 @@ test('registers the anonymous uninstall survey URL and recreates only the Search
   try {
     await import(`../background.js?uninstall-survey=${Date.now()}`);
     installListeners[0]();
+    installListeners[1]({ reason: 'update' });
+    installListeners[1]({ reason: 'browser_update' });
+    assert.deepEqual(tabCalls, []);
+    installListeners[1]({ reason: 'install' });
+    assert.deepEqual(tabCalls, [{ url: 'chrome-extension://test/welcome.html' }]);
     await new Promise((resolve) => setImmediate(resolve));
   } finally {
     delete globalThis.chrome;
