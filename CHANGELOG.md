@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.0] - 2026-11-04
+
+- A welcome page opens on first install: connect with ZUREQ, open the side panel, and search from the context menu.
+- The side panel asks once in a while for a store rating after a few successful searches (local counters only, never sent anywhere).
+- Options: “Recommend ZUREQ Shopper” card to copy or share the store link and rate the extension.
+
 ## [1.7.1] - 2026-11-03
 
 - Options: more space between the logo and the ZUREQ account card.
