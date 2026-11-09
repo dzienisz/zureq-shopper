@@ -80,9 +80,14 @@ jobs:
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+          PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
         run: |
+          if [ -z "$PUBLISHER_ID" ]; then
+            echo "::error::CWS_PUBLISHER_ID is not set - the Chrome Web Store v2 API requires it"
+            exit 1
+          fi
           version="${GITHUB_REF_NAME#v}"
-          out=$(npx --yes chrome-webstore-upload-cli@3 --source "zureq-shopper-$version.zip" 2>&1) && status=0 || status=$?
+          out=$(npx --yes chrome-webstore-upload-cli@4 --source "zureq-shopper-$version.zip" 2>&1) && status=0 || status=$?
           echo "$out"
           if [ "$status" -ne 0 ] && echo "$out" | grep -q "ITEM_NOT_UPDATABLE"; then
             echo "::warning::Chrome Web Store still has the previous version in review; upload skipped."
