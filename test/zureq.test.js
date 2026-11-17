@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addSearchHistory, applyLiveDetails, callTool, checkoutSku, chunkLines, creditCost, EMPTY_RESULT_COSTS, formatCredits, freshnessLabel, getCachedShopInfo,
+  addSearchHistory, applyLiveDetails, callTool, checkoutSku, chunkLines, creditCost, EMPTY_RESULT_COSTS, flagArgs, formatCredits, hasFlag, INPOST_PAY, tagProducts, freshnessLabel, getCachedShopInfo,
   getShopInfo, isRetryable, locationArgs, mapApiError, normalizeMarkets, parseMaxPrice, parseToolResponse,
   isLowCredits, stockLabel, ZureqError
 } from '../zureq.js';
@@ -456,4 +456,25 @@ test.afterEach(() => {
   else globalThis.chrome = originalChrome;
   if (originalFetch === undefined) delete globalThis.fetch;
   else globalThis.fetch = originalFetch;
+});
+
+test('sends the InPost Pay flag only when the filter is on', () => {
+  assert.deepEqual(flagArgs(true), { flags: ['inpost_pay'] });
+  assert.deepEqual(flagArgs(false), {});
+});
+
+test('tags rows of a flag-filtered search, since search rows carry no flags', () => {
+  const rows = [{ sku: 'a' }, { sku: 'b', flags: [] }];
+  assert.deepEqual(tagProducts(rows, ['inpost_pay']), [{ sku: 'a', flags: ['inpost_pay'] }, { sku: 'b', flags: [] }]);
+  assert.equal(tagProducts(rows, undefined), rows);
+  assert.deepEqual(tagProducts(null, ['inpost_pay']), []);
+  assert.equal(hasFlag(tagProducts(rows, ['inpost_pay'])[0], INPOST_PAY), true);
+  assert.equal(hasFlag(rows[0], INPOST_PAY), false);
+});
+
+test('live details replace a product\'s flags when the shop reports them', () => {
+  const product = { sku: 'a', price: 10, currency: 'PLN' };
+  assert.deepEqual(applyLiveDetails(product, { price: 10, flags: ['inpost_pay'] }).product.flags, ['inpost_pay']);
+  assert.equal('flags' in applyLiveDetails(product, { price: 10 }).product, false);
+  assert.deepEqual(applyLiveDetails({ ...product, flags: ['inpost_pay'] }, { price: 10, flags: [] }).product.flags, []);
 });

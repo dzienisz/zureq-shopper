@@ -52,7 +52,8 @@ export function applyLiveDetails(product, details) {
       ...product,
       price,
       currency: details.currency || product.currency,
-      inStock: details.inStock ?? product.inStock
+      inStock: details.inStock ?? product.inStock,
+      ...(Array.isArray(details.flags) ? { flags: details.flags } : {})
     },
     previousPrice: Number.isFinite(oldPrice) && oldPrice !== price ? product.price : null
   };
@@ -85,6 +86,23 @@ export function locationArgs(code) {
   const location = String(code || '').trim().toUpperCase();
   if (!location) return {};
   return location === 'EU' ? { region: 'EU' } : { country: location };
+}
+
+export const INPOST_PAY = 'inpost_pay';
+
+export function flagArgs(inpostPayOnly) {
+  return inpostPayOnly ? { flags: [INPOST_PAY] } : {};
+}
+
+// search_products rows carry no flags, so a filtered search tags its own rows.
+export function tagProducts(products, flags) {
+  const list = Array.isArray(products) ? products : [];
+  if (!Array.isArray(flags) || !flags.length) return list;
+  return list.map((product) => Array.isArray(product?.flags) ? product : { ...product, flags });
+}
+
+export function hasFlag(item, flag) {
+  return Array.isArray(item?.flags) && item.flags.includes(flag);
 }
 
 export function parseMaxPrice(raw) {

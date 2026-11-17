@@ -1,6 +1,6 @@
 import {
   applyLiveDetails, TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool, chunkLines, creditCost,
-  checkoutSku, formatCredits,
+  checkoutSku, flagArgs, formatCredits, hasFlag, INPOST_PAY, tagProducts,
   freshnessLabel, getCachedMarkets, getCachedShopInfo, getSearchHistory,
   getShopInfo, isLowCredits, locationArgs, normalizeMarkets, parseMaxPrice, stockLabel
 } from './zureq.js';
@@ -292,7 +292,8 @@ function renderProducts() {
       ? ` <span class="muted">was ${esc(details.previousPrice)} ${esc(details.previousCurrency || product.currency || '')} in search</span>`
       : '';
     const outOfStock = product.inStock === false ? '<span class="stock-chip">Out of stock</span>' : '';
-    return `<article class="card" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}">${image}<div class="product-copy"><h3>${esc(decodeEntities(product.name))}</h3><div class="product-shop">${esc(shopName)}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}${previousPriceNote}${cheaper ? ' <span class="cheaper">cheaper</span>' : ''}</div>${outOfStock}</div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout</button><button data-action="watch">Watch</button></div>${detailHtml}</article>`;
+    const inpostPay = hasFlag(product, INPOST_PAY) ? '<span class="flag-chip">InPost Pay</span>' : '';
+    return `<article class="card" data-shop-id="${esc(product.shopId)}" data-sku="${esc(product.sku)}">${image}<div class="product-copy"><h3>${esc(decodeEntities(product.name))}</h3><div class="product-shop">${esc(shopName)}</div><div class="price">${esc(product.price)} ${esc(product.currency || '')}${previousPriceNote}${cheaper ? ' <span class="cheaper">cheaper</span>' : ''}</div>${outOfStock}${inpostPay}</div><div class="card-actions"><button data-action="details">${details ? 'Hide details' : 'Details'}</button><button data-action="checkout">Checkout</button><button data-action="watch">Watch</button></div>${detailHtml}</article>`;
   }).join('') : '<p class="hint">No products found. Try a broader query or another country.</p>';
   if (products.length) {
     $('search-results').insertAdjacentHTML('afterbegin', '<div class="watch-search-row"><button data-action="watch-search">Watch this search</button></div>');
@@ -310,7 +311,7 @@ async function search(event) {
     showNotice(maxPrice.error, true);
     return;
   }
-  const args = { query, ...locationArgs(country), maxPrice: maxPrice.value, inStockOnly: $('in-stock').checked, limit: Math.min(50, Number($('limit').value) || 10) };
+  const args = { query, ...locationArgs(country), maxPrice: maxPrice.value, inStockOnly: $('in-stock').checked, limit: Math.min(50, Number($('limit').value) || 10), ...flagArgs($('inpost-pay').checked) };
   Object.keys(args).forEach((key) => args[key] === undefined && delete args[key]);
   const button = event?.submitter || $('search-form').querySelector('[type="submit"]');
   const results = $('search-results');
@@ -320,7 +321,7 @@ async function search(event) {
   results.innerHTML = skeletonHtml('product', Math.min(args.limit, 4));
   try {
     const data = await tool('search_products', args);
-    state.products = data?.products || data?.items || [];
+    state.products = tagProducts(data?.products || data?.items || [], args.flags);
     state.lastSearch = { query: args.query, country: args.country || args.region || '' };
     state.details.clear();
     state.history = await addSearchHistory(query);
