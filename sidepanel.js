@@ -1,6 +1,6 @@
 import {
   applyLiveDetails, TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool, chunkLines, creditCost,
-  checkoutSku, flagArgs, formatCredits, hasFlag, INPOST_PAY, tagProducts,
+  checkoutHandoff, checkoutSku, flagArgs, formatCredits, hasFlag, INPOST_PAY, tagProducts,
   freshnessLabel, getCachedMarkets, getCachedShopInfo, getSearchHistory,
   getShopInfo, isLowCredits, locationArgs, normalizeMarkets, parseMaxPrice, stockLabel
 } from './zureq.js';
@@ -406,9 +406,9 @@ async function checkout(card, button) {
       return;
     }
     const data = await tool('create_checkout_link', { shopId: product.shopId, lines: [{ sku: variant || product.sku, quantity: 1 }] });
-    const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
+    const { url, note } = checkoutHandoff(data, details.productUrl || product.productUrl);
     const area = card.querySelector('.checkout-area') || card.querySelector('.details-slot');
-    area.innerHTML = url ? `<div class="checkout"><a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a><div class="card-actions"><button data-action="open-url" data-url="${esc(url)}">Open</button><button data-action="copy-url" data-url="${esc(url)}">Copy</button></div></div>` : '<div class="checkout">No checkout URL was returned.</div>';
+    area.innerHTML = url ? `<div class="checkout">${note ? `<p class="checkout-note">${esc(note)}</p>` : ''}<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a><div class="card-actions"><button data-action="open-url" data-url="${esc(url)}">Open</button><button data-action="copy-url" data-url="${esc(url)}">Copy</button></div></div>` : '<div class="checkout">No checkout URL was returned.</div>';
   } catch (error) {
     handleError(error);
   } finally {
@@ -670,9 +670,9 @@ async function listCheckout(groupIndex) {
           shopId: group.shopId,
           lines: chunk.map(({ candidate }) => ({ sku: checkoutSku(candidate), quantity: 1 }))
         });
-        const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
+        const { url, note } = checkoutHandoff(data, chunk.length === 1 ? chunk[0].candidate?.productUrl : '');
         links.push(url
-          ? `<p><strong>${label}</strong>: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></p>`
+          ? `<p><strong>${label}</strong>: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>${note ? ` <span class="checkout-note">${esc(note)}</span>` : ''}</p>`
           : `<p><strong>${label}</strong>: No checkout URL returned.</p>`);
       } catch (chunkError) {
         const itemLinks = [];
@@ -686,9 +686,9 @@ async function listCheckout(groupIndex) {
                 shopId: group.shopId,
                 lines: [{ sku: checkoutSku(candidate), quantity: 1 }]
               });
-              const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
+              const { url, note } = checkoutHandoff(data, candidate?.productUrl);
               itemLinks.push(url
-                ? `<li>${esc(part.name)}: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></li>`
+                ? `<li>${esc(part.name)}: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>${note ? ` <span class="checkout-note">${esc(note)}</span>` : ''}</li>`
                 : `<li>${esc(part.name)}: No checkout URL returned.</li>`);
             } catch (itemError) {
               itemLinks.push(`<li>${esc(part.name)}: ${esc(itemError?.message || chunkError?.message || 'Could not create checkout link.')}</li>`);

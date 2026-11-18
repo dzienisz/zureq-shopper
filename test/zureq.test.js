@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addSearchHistory, applyLiveDetails, callTool, checkoutSku, chunkLines, creditCost, EMPTY_RESULT_COSTS, flagArgs, formatCredits, hasFlag, INPOST_PAY, tagProducts, freshnessLabel, getCachedShopInfo,
+  addSearchHistory, applyLiveDetails, callTool, checkoutHandoff, checkoutSku, PRODUCT_PAGE_NOTE, chunkLines, creditCost, EMPTY_RESULT_COSTS, flagArgs, formatCredits, hasFlag, INPOST_PAY, tagProducts, freshnessLabel, getCachedShopInfo,
   getShopInfo, isRetryable, locationArgs, mapApiError, normalizeMarkets, parseMaxPrice, parseToolResponse,
   isLowCredits, stockLabel, ZureqError
 } from '../zureq.js';
@@ -477,4 +477,14 @@ test('live details replace a product\'s flags when the shop reports them', () =>
   assert.deepEqual(applyLiveDetails(product, { price: 10, flags: ['inpost_pay'] }).product.flags, ['inpost_pay']);
   assert.equal('flags' in applyLiveDetails(product, { price: 10 }).product, false);
   assert.deepEqual(applyLiveDetails({ ...product, flags: ['inpost_pay'] }, { price: 10, flags: [] }).product.flags, []);
+});
+
+test('a checkout link that is the product page is not presented as a prepared cart', () => {
+  const productUrl = 'https://shop.example/pl/p/Kubek/51473';
+  assert.deepEqual(checkoutHandoff({ checkoutUrl: productUrl + '/' }, productUrl), { url: productUrl + '/', cartPrepared: false, note: PRODUCT_PAGE_NOTE });
+  assert.deepEqual(checkoutHandoff({ checkoutUrl: 'https://shop.example/cart/1:1', cartPrepared: false }, productUrl).note, PRODUCT_PAGE_NOTE);
+  assert.deepEqual(checkoutHandoff({ checkoutUrl: 'https://shop.example/cart/1:1' }, productUrl), { url: 'https://shop.example/cart/1:1', cartPrepared: true, note: '' });
+  assert.deepEqual(checkoutHandoff({ url: 'https://shop.example/?add-to-cart=7' }, 'https://shop.example/'), { url: 'https://shop.example/?add-to-cart=7', cartPrepared: true, note: '' });
+  assert.deepEqual(checkoutHandoff({ checkoutUrl: 'https://shop.example/cart/1:1' }, undefined).cartPrepared, true);
+  assert.deepEqual(checkoutHandoff({}, productUrl), { url: '', cartPrepared: false, note: '' });
 });
