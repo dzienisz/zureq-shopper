@@ -657,9 +657,14 @@ async function listCheckout(groupIndex) {
       show('Loading product details…');
       await Promise.all(group.picks.map(({ part, candidate }) => loadListPickDetails(part, candidate)));
       const current = state.listGroups.find((candidate) => listLinkKey(candidate) === key);
-      if (!current) return;
+      if (!current) {
+        listLinkHtml.delete(key);
+        return;
+      }
       group = current;
     }
+    // A variant chosen while the requests below run must not change what this key stands for.
+    group = { ...group, picks: group.picks.map(({ part, candidate }) => ({ part, candidate: { ...candidate } })) };
     const unresolved = group.picks.filter(({ candidate }) => {
       const details = state.list.productDetails?.[productKey(candidate)];
       return (details?.requiresVariant || details?.variants?.length) && !candidate.variantSku;
@@ -895,6 +900,7 @@ $('search-list').addEventListener('click', searchListItems);
 $('clear-list').addEventListener('click', async () => {
   state.list = { text: '', country: $('list-country').value, parts: [], productDetails: {}, running: false };
   state.listGroups = [];
+  listLinkHtml.clear();
   $('list-input').value = '';
   $('list-run-status').textContent = 'Enter up to 10 items.';
   $('list-input').disabled = false;
