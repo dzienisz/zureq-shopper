@@ -506,6 +506,11 @@ function applyListPickDetails(part, pick, details) {
   };
 }
 
+// Search rows from some shops carry no productUrl; the loaded details do.
+function listProductUrl(candidate) {
+  return state.list.productDetails?.[productKey(candidate)]?.productUrl || candidate?.productUrl;
+}
+
 async function loadListPickDetails(part, pick) {
   const key = productKey(pick);
   if (state.list.productDetails?.[key]) {
@@ -670,7 +675,7 @@ async function listCheckout(groupIndex) {
           shopId: group.shopId,
           lines: chunk.map(({ candidate }) => ({ sku: checkoutSku(candidate), quantity: 1 }))
         });
-        const { url, note } = checkoutHandoff(data, chunk.length === 1 ? chunk[0].candidate?.productUrl : '');
+        const { url, note } = checkoutHandoff(data, chunk.length === 1 ? listProductUrl(chunk[0].candidate) : '');
         links.push(url
           ? `<p><strong>${label}</strong>: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>${note ? ` <span class="checkout-note">${esc(note)}</span>` : ''}</p>`
           : `<p><strong>${label}</strong>: No checkout URL returned.</p>`);
@@ -686,7 +691,7 @@ async function listCheckout(groupIndex) {
                 shopId: group.shopId,
                 lines: [{ sku: checkoutSku(candidate), quantity: 1 }]
               });
-              const { url, note } = checkoutHandoff(data, candidate?.productUrl);
+              const { url, note } = checkoutHandoff(data, listProductUrl(candidate));
               itemLinks.push(url
                 ? `<li>${esc(part.name)}: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>${note ? ` <span class="checkout-note">${esc(note)}</span>` : ''}</li>`
                 : `<li>${esc(part.name)}: No checkout URL returned.</li>`);
