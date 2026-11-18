@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0] - 2026-11-18
+
+- Search: “InPost Pay only” filter, and an InPost Pay badge on products that support it.
+- When a shop answers a checkout request with the product page instead of a cart, the panel says so.
+- List: a checkout link stays on screen when you pick results for other items.
+- Store listings: 12,000+ shops.
+
 ## [1.8.0] - 2026-11-04
 
 - A welcome page opens on first install: connect with ZUREQ, open the side panel, and search from the context menu.
