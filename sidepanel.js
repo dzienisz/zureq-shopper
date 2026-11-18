@@ -553,11 +553,20 @@ async function loadListPickDetails(part, pick) {
   }
 }
 
+// Checkout output per shop and selection. The summary is rebuilt whenever a pick's details
+// arrive, so it is kept here instead of only in the DOM.
+const listLinkHtml = new Map();
+const listCheckoutBusy = new Set();
+
+function listLinkKey(group) {
+  return `${group.shopId}|${group.picks.map(({ candidate }) => checkoutSku(candidate)).join(',')}`;
+}
+
 function renderListSummary() {
   const groups = groupListPicks(state.list.parts);
   const content = groups.length ? groups.map((group, index) => {
     const totals = group.totals.map(({ currency, amount }) => `${amount.toFixed(2)} ${esc(currency)}`).join(' · ') || 'Total unavailable';
-    return `<div class="list-summary-group" data-group="${index}"><h3>${esc(group.shopName)}</h3><div class="summary-total">${totals}</div><ul>${group.picks.map(({ part, candidate }) => `<li>${esc(part.name)} — ${esc(decodeEntities(candidate.name))}</li>`).join('')}</ul><button class="secondary list-checkout" data-group="${index}">Checkout link</button><div class="list-link"></div></div>`;
+    return `<div class="list-summary-group" data-group="${index}"><h3>${esc(group.shopName)}</h3><div class="summary-total">${totals}</div><ul>${group.picks.map(({ part, candidate }) => `<li>${esc(part.name)} — ${esc(decodeEntities(candidate.name))}</li>`).join('')}</ul><button class="secondary list-checkout" data-group="${index}"${listCheckoutBusy.has(listLinkKey(group)) ? ' disabled' : ''}>Checkout link</button><div class="list-link">${listLinkHtml.get(listLinkKey(group)) || ''}</div></div>`;
   }).join('') : state.list.parts.length ? '<p class="hint">Pick one result per item to see shop totals.</p>' : '';
   $('list-summary').innerHTML = state.list.parts.length ? `<div class="list-summary">${content}</div>` : '';
   state.listGroups = groups;
@@ -636,33 +645,33 @@ async function searchListItems() {
 async function listCheckout(groupIndex) {
   let group = state.listGroups[groupIndex];
   if (!group) return;
-  const buttonSelector = `.list-summary-group[data-group="${groupIndex}"] .list-checkout`;
-  let button = document.querySelector(buttonSelector);
-  let target = button?.parentElement.querySelector('.list-link');
-  if (group.picks.length) {
-    if (button) button.disabled = true;
-    if (target) target.textContent = 'Loading product details…';
-    await Promise.all(group.picks.map(({ part, candidate }) => loadListPickDetails(part, candidate)));
-    group = state.listGroups[groupIndex];
-    if (!group) return;
-    button = document.querySelector(buttonSelector);
-    target = button?.parentElement.querySelector('.list-link');
-  }
-  const unresolved = group.picks.filter(({ candidate }) => {
-    const details = state.list.productDetails?.[productKey(candidate)];
-    return (details?.requiresVariant || details?.variants?.length) && !candidate.variantSku;
-  });
-  if (unresolved.length) {
-    if (button) button.disabled = false;
-    if (target) target.textContent = `Choose a variant for: ${unresolved.map(({ part }) => part.name).join(', ')}`;
-    return;
-  }
-  if (button) button.disabled = true;
+  const key = listLinkKey(group);
+  if (listCheckoutBusy.has(key)) return;
+  const show = (html) => {
+    listLinkHtml.set(key, html);
+    renderListSummary();
+  };
+  listCheckoutBusy.add(key);
   try {
+    if (group.picks.length) {
+      show('Loading product details…');
+      await Promise.all(group.picks.map(({ part, candidate }) => loadListPickDetails(part, candidate)));
+      const current = state.listGroups.find((candidate) => listLinkKey(candidate) === key);
+      if (!current) return;
+      group = current;
+    }
+    const unresolved = group.picks.filter(({ candidate }) => {
+      const details = state.list.productDetails?.[productKey(candidate)];
+      return (details?.requiresVariant || details?.variants?.length) && !candidate.variantSku;
+    });
+    if (unresolved.length) {
+      show(esc(`Choose a variant for: ${unresolved.map(({ part }) => part.name).join(', ')}`));
+      return;
+    }
     if (!group.shopId) throw new ZureqError('API_ERROR', 'Shop information is unavailable for this item.');
     const { info } = await getShopInfo(tool, group.shopId);
     if (info.checkoutLinkSupported === false) {
-      if (target) target.textContent = "This shop doesn't support checkout links.";
+      show("This shop doesn't support checkout links.");
       return;
     }
     const chunks = chunkLines(group.picks, info.checkoutLinkMaxLines);
@@ -703,12 +712,13 @@ async function listCheckout(groupIndex) {
         links.push(`<div><strong>${label}</strong><ul>${itemLinks.join('')}</ul></div>`);
       }
     }
-    if (target) target.innerHTML = links.join('');
+    show(links.join(''));
   } catch (error) {
-    if (target) target.textContent = error?.message || 'Could not check shop checkout support.';
+    show(esc(error?.message || 'Could not check shop checkout support.'));
     handleError(error);
   } finally {
-    if (button) button.disabled = false;
+    listCheckoutBusy.delete(key);
+    renderListSummary();
   }
 }
 
