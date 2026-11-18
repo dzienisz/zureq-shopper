@@ -559,7 +559,7 @@ const listLinkHtml = new Map();
 const listCheckoutBusy = new Set();
 
 function listLinkKey(group) {
-  return `${group.shopId}|${group.picks.map(({ candidate }) => checkoutSku(candidate)).join(',')}`;
+  return JSON.stringify([group.shopId, ...group.picks.map(({ candidate }) => checkoutSku(candidate))]);
 }
 
 function renderListSummary() {
