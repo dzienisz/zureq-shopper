@@ -677,7 +677,7 @@ async function listCheckout(groupIndex) {
         });
         const { url, note } = checkoutHandoff(data, chunk.length === 1 ? listProductUrl(chunk[0].candidate) : '');
         links.push(url
-          ? `<p><strong>${label}</strong>: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>${note ? ` <span class="checkout-note">${esc(note)}</span>` : ''}</p>`
+          ? `<p><strong>${note ? 'Product page' : label}</strong>: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>${note ? ` <span class="checkout-note">${esc(note)}</span>` : ''}</p>`
           : `<p><strong>${label}</strong>: No checkout URL returned.</p>`);
       } catch (chunkError) {
         const itemLinks = [];
