@@ -900,6 +900,7 @@ $('search-list').addEventListener('click', searchListItems);
 $('clear-list').addEventListener('click', async () => {
   state.list = { text: '', country: $('list-country').value, parts: [], productDetails: {}, running: false };
   state.listGroups = [];
+  listLinkHtml.clear();
   $('list-input').value = '';
   $('list-run-status').textContent = 'Enter up to 10 items.';
   $('list-input').disabled = false;
