@@ -6,13 +6,13 @@ ZUREQ Shopper — Network Product Search & Price Alerts
 
 ## Summary
 
-Search 9,600+ independent shops on the ZUREQ network, watch prices and get ready-to-pay cart links.
+Search 12,000+ independent shops on the ZUREQ network, watch prices and get ready-to-pay cart links.
 
 ## Detailed description
 
 ZUREQ Shopper gives you one focused shopping workspace for product discovery,
 shopping lists, price alerts, and checkout links across
-9,600+ independent shops in the US, Poland, and Austria. Connect with your
+12,000+ independent shops in the US, Poland, and Austria. Connect with your
 ZUREQ account or use your own API key to access the ZUREQ MCP API.
 
 Featured integration on zureq.io (https://zureq.io).
