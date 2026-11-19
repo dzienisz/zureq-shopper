@@ -1,6 +1,6 @@
 import {
   applyLiveDetails, TOOL_COSTS, ZureqError, addSearchHistory, cacheMarkets, callTool, chunkLines, creditCost,
-  checkoutSku, flagArgs, formatCredits, hasFlag, INPOST_PAY, tagProducts,
+  checkoutHandoff, checkoutSku, flagArgs, formatCredits, hasFlag, INPOST_PAY, tagProducts,
   freshnessLabel, getCachedMarkets, getCachedShopInfo, getSearchHistory,
   getShopInfo, isLowCredits, locationArgs, normalizeMarkets, parseMaxPrice, stockLabel
 } from './zureq.js';
@@ -406,9 +406,9 @@ async function checkout(card, button) {
       return;
     }
     const data = await tool('create_checkout_link', { shopId: product.shopId, lines: [{ sku: variant || product.sku, quantity: 1 }] });
-    const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
+    const { url, note } = checkoutHandoff(data, details.productUrl || product.productUrl);
     const area = card.querySelector('.checkout-area') || card.querySelector('.details-slot');
-    area.innerHTML = url ? `<div class="checkout"><a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a><div class="card-actions"><button data-action="open-url" data-url="${esc(url)}">Open</button><button data-action="copy-url" data-url="${esc(url)}">Copy</button></div></div>` : '<div class="checkout">No checkout URL was returned.</div>';
+    area.innerHTML = url ? `<div class="checkout">${note ? `<p class="checkout-note">${esc(note)}</p>` : ''}<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a><div class="card-actions"><button data-action="open-url" data-url="${esc(url)}">Open</button><button data-action="copy-url" data-url="${esc(url)}">Copy</button></div></div>` : '<div class="checkout">No checkout URL was returned.</div>';
   } catch (error) {
     handleError(error);
   } finally {
@@ -506,6 +506,11 @@ function applyListPickDetails(part, pick, details) {
   };
 }
 
+// Search rows from some shops carry no productUrl; the loaded details do.
+function listProductUrl(candidate) {
+  return state.list.productDetails?.[productKey(candidate)]?.productUrl || candidate?.productUrl;
+}
+
 async function loadListPickDetails(part, pick) {
   const key = productKey(pick);
   if (state.list.productDetails?.[key]) {
@@ -548,11 +553,20 @@ async function loadListPickDetails(part, pick) {
   }
 }
 
+// Checkout output per shop and selection. The summary is rebuilt whenever a pick's details
+// arrive, so it is kept here instead of only in the DOM.
+const listLinkHtml = new Map();
+const listCheckoutBusy = new Set();
+
+function listLinkKey(group) {
+  return JSON.stringify([group.shopId, ...group.picks.map(({ candidate }) => checkoutSku(candidate))]);
+}
+
 function renderListSummary() {
   const groups = groupListPicks(state.list.parts);
   const content = groups.length ? groups.map((group, index) => {
     const totals = group.totals.map(({ currency, amount }) => `${amount.toFixed(2)} ${esc(currency)}`).join(' · ') || 'Total unavailable';
-    return `<div class="list-summary-group" data-group="${index}"><h3>${esc(group.shopName)}</h3><div class="summary-total">${totals}</div><ul>${group.picks.map(({ part, candidate }) => `<li>${esc(part.name)} — ${esc(decodeEntities(candidate.name))}</li>`).join('')}</ul><button class="secondary list-checkout" data-group="${index}">Checkout link</button><div class="list-link"></div></div>`;
+    return `<div class="list-summary-group" data-group="${index}"><h3>${esc(group.shopName)}</h3><div class="summary-total">${totals}</div><ul>${group.picks.map(({ part, candidate }) => `<li>${esc(part.name)} — ${esc(decodeEntities(candidate.name))}</li>`).join('')}</ul><button class="secondary list-checkout" data-group="${index}"${listCheckoutBusy.has(listLinkKey(group)) ? ' disabled' : ''}>Checkout link</button><div class="list-link">${listLinkHtml.get(listLinkKey(group)) || ''}</div></div>`;
   }).join('') : state.list.parts.length ? '<p class="hint">Pick one result per item to see shop totals.</p>' : '';
   $('list-summary').innerHTML = state.list.parts.length ? `<div class="list-summary">${content}</div>` : '';
   state.listGroups = groups;
@@ -631,33 +645,38 @@ async function searchListItems() {
 async function listCheckout(groupIndex) {
   let group = state.listGroups[groupIndex];
   if (!group) return;
-  const buttonSelector = `.list-summary-group[data-group="${groupIndex}"] .list-checkout`;
-  let button = document.querySelector(buttonSelector);
-  let target = button?.parentElement.querySelector('.list-link');
-  if (group.picks.length) {
-    if (button) button.disabled = true;
-    if (target) target.textContent = 'Loading product details…';
-    await Promise.all(group.picks.map(({ part, candidate }) => loadListPickDetails(part, candidate)));
-    group = state.listGroups[groupIndex];
-    if (!group) return;
-    button = document.querySelector(buttonSelector);
-    target = button?.parentElement.querySelector('.list-link');
-  }
-  const unresolved = group.picks.filter(({ candidate }) => {
-    const details = state.list.productDetails?.[productKey(candidate)];
-    return (details?.requiresVariant || details?.variants?.length) && !candidate.variantSku;
-  });
-  if (unresolved.length) {
-    if (button) button.disabled = false;
-    if (target) target.textContent = `Choose a variant for: ${unresolved.map(({ part }) => part.name).join(', ')}`;
-    return;
-  }
-  if (button) button.disabled = true;
+  const key = listLinkKey(group);
+  if (listCheckoutBusy.has(key)) return;
+  const show = (html) => {
+    listLinkHtml.set(key, html);
+    renderListSummary();
+  };
+  listCheckoutBusy.add(key);
   try {
+    if (group.picks.length) {
+      show('Loading product details…');
+      await Promise.all(group.picks.map(({ part, candidate }) => loadListPickDetails(part, candidate)));
+      const current = state.listGroups.find((candidate) => listLinkKey(candidate) === key);
+      if (!current) {
+        listLinkHtml.delete(key);
+        return;
+      }
+      group = current;
+    }
+    // A variant chosen while the requests below run must not change what this key stands for.
+    group = { ...group, picks: group.picks.map(({ part, candidate }) => ({ part, candidate: { ...candidate } })) };
+    const unresolved = group.picks.filter(({ candidate }) => {
+      const details = state.list.productDetails?.[productKey(candidate)];
+      return (details?.requiresVariant || details?.variants?.length) && !candidate.variantSku;
+    });
+    if (unresolved.length) {
+      show(esc(`Choose a variant for: ${unresolved.map(({ part }) => part.name).join(', ')}`));
+      return;
+    }
     if (!group.shopId) throw new ZureqError('API_ERROR', 'Shop information is unavailable for this item.');
     const { info } = await getShopInfo(tool, group.shopId);
     if (info.checkoutLinkSupported === false) {
-      if (target) target.textContent = "This shop doesn't support checkout links.";
+      show("This shop doesn't support checkout links.");
       return;
     }
     const chunks = chunkLines(group.picks, info.checkoutLinkMaxLines);
@@ -670,9 +689,9 @@ async function listCheckout(groupIndex) {
           shopId: group.shopId,
           lines: chunk.map(({ candidate }) => ({ sku: checkoutSku(candidate), quantity: 1 }))
         });
-        const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
+        const { url, note } = checkoutHandoff(data, chunk.length === 1 ? listProductUrl(chunk[0].candidate) : '');
         links.push(url
-          ? `<p><strong>${label}</strong>: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></p>`
+          ? `<p><strong>${note ? 'Product page' : label}</strong>: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>${note ? ` <span class="checkout-note">${esc(note)}</span>` : ''}</p>`
           : `<p><strong>${label}</strong>: No checkout URL returned.</p>`);
       } catch (chunkError) {
         const itemLinks = [];
@@ -686,9 +705,9 @@ async function listCheckout(groupIndex) {
                 shopId: group.shopId,
                 lines: [{ sku: checkoutSku(candidate), quantity: 1 }]
               });
-              const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link;
+              const { url, note } = checkoutHandoff(data, listProductUrl(candidate));
               itemLinks.push(url
-                ? `<li>${esc(part.name)}: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></li>`
+                ? `<li>${esc(part.name)}: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>${note ? ` <span class="checkout-note">${esc(note)}</span>` : ''}</li>`
                 : `<li>${esc(part.name)}: No checkout URL returned.</li>`);
             } catch (itemError) {
               itemLinks.push(`<li>${esc(part.name)}: ${esc(itemError?.message || chunkError?.message || 'Could not create checkout link.')}</li>`);
@@ -698,12 +717,13 @@ async function listCheckout(groupIndex) {
         links.push(`<div><strong>${label}</strong><ul>${itemLinks.join('')}</ul></div>`);
       }
     }
-    if (target) target.innerHTML = links.join('');
+    show(links.join(''));
   } catch (error) {
-    if (target) target.textContent = error?.message || 'Could not check shop checkout support.';
+    show(esc(error?.message || 'Could not check shop checkout support.'));
     handleError(error);
   } finally {
-    if (button) button.disabled = false;
+    listCheckoutBusy.delete(key);
+    renderListSummary();
   }
 }
 
@@ -880,6 +900,7 @@ $('search-list').addEventListener('click', searchListItems);
 $('clear-list').addEventListener('click', async () => {
   state.list = { text: '', country: $('list-country').value, parts: [], productDetails: {}, running: false };
   state.listGroups = [];
+  listLinkHtml.clear();
   $('list-input').value = '';
   $('list-run-status').textContent = 'Enter up to 10 items.';
   $('list-input').disabled = false;

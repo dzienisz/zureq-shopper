@@ -113,6 +113,26 @@ export function parseMaxPrice(raw) {
     : { error: 'Max price must be greater than 0.' };
 }
 
+function samePage(a, b) {
+  try {
+    const left = new URL(a);
+    const right = new URL(b);
+    return left.origin === right.origin && left.pathname.replace(/\/$/, '') === right.pathname.replace(/\/$/, '') && left.search === right.search;
+  } catch {
+    return false;
+  }
+}
+
+export const PRODUCT_PAGE_NOTE = 'This link opens the product page, not a cart. Add the item to the cart there.';
+
+// create_checkout_link can return the product page instead of a prepared cart
+// (cartPrepared: false, or the product's own URL); the buyer still has to add it.
+export function checkoutHandoff(data, productUrl) {
+  const url = data?.url || data?.checkoutUrl || data?.cartUrl || data?.link || '';
+  const cartPrepared = Boolean(url) && data?.cartPrepared !== false && !samePage(url, productUrl);
+  return { url, cartPrepared, note: url && !cartPrepared ? PRODUCT_PAGE_NOTE : '' };
+}
+
 export function checkoutSku(pick) {
   return pick?.variantSku || pick?.sku;
 }

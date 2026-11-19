@@ -102,6 +102,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent-deep); bo
 .out { color: var(--danger); }
 .stock-chip { display: inline-flex; align-items: center; margin-top: 4px; padding: 2px 6px; border: 1px solid #e4001440; border-radius: 20px; background: #fff; color: var(--danger); font-size: 10px; font-weight: 700; white-space: nowrap; }
 .flag-chip { display: inline-flex; align-items: center; margin: 4px 4px 0 0; padding: 2px 6px; border: 1px solid #ffcd00; border-radius: 20px; background: #fff8d6; color: #1d1d1b; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.checkout-note { margin: 0 0 6px; color: var(--muted); font-size: 11px; }
 .card-actions { grid-column: 1 / -1; display: flex; flex-wrap: nowrap; gap: 6px; }
 .card-actions button, .secondary, .watch-search-row button { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 7px; padding: 6px 9px; font-weight: 700; font-size: 11px; }
 .card-actions button:hover, .secondary:hover, .watch-search-row button:hover { background: var(--panel); }
